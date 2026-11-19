@@ -1,0 +1,5 @@
+# secrets
+js/config.local.js
+# local tooling
+.claude/
+.DS_Store
