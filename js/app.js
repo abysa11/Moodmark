@@ -3,7 +3,8 @@ import { createDay, songLabel } from './pipeline.js';
 import { seedIfEmpty } from './seed.js';
 import { analyzeAudioFile } from './analyze-audio.js';
 import { searchTracks, fetchPreview } from './music.js';
-import { MemoryRenderer, renderPoster, formatDate, MOODS, W, H } from './renderer.js';
+import { MemoryRenderer, renderPoster, MOODS, W, H } from './renderer.js';
+import { t, lang, setLang, LANGS, daysN, formatDate, loc, posterLangOf } from './i18n.js';
 import { makeZip, download } from './zip.js';
 import { canRecord, startRecording } from './recorder.js';
 import { listCollections, getCollection, saveCollection, removeCollection, collectionsOf, forgetDay } from './collections.js';
@@ -42,24 +43,42 @@ const I = {
 const moodOf = d => MOODS[d.style.regime] || MOODS.ma;
 const MOOD_ORDER = ['collage', 'impression', 'ma', 'film', 'construct'];
 const SORTS = {
-  new: ['Сначала новые', (a, b) => (b.date || '').localeCompare(a.date || '') || b.createdAt - a.createdAt],
-  light: ['Сначала светлые', (a, b) => b.style.valence - a.style.valence],
-  sad: ['Сначала грустные', (a, b) => a.style.valence - b.style.valence],
-  energy: ['Сначала энергичные', (a, b) => b.style.arousal - a.style.arousal],
-  calm: ['Сначала спокойные', (a, b) => a.style.arousal - b.style.arousal],
-  old: ['Сначала старые', (a, b) => (a.date || '').localeCompare(b.date || '') || a.createdAt - b.createdAt],
+  new: ['sort_new', (a, b) => (b.date || '').localeCompare(a.date || '') || b.createdAt - a.createdAt],
+  light: ['sort_light', (a, b) => b.style.valence - a.style.valence],
+  sad: ['sort_sad', (a, b) => a.style.valence - b.style.valence],
+  energy: ['sort_energy', (a, b) => b.style.arousal - a.style.arousal],
+  calm: ['sort_calm', (a, b) => a.style.arousal - b.style.arousal],
+  old: ['sort_old', (a, b) => (a.date || '').localeCompare(b.date || '') || a.createdAt - b.createdAt],
 };
-const plural = (n, a, b, c) => { const m = n % 10, h = n % 100; return m === 1 && h !== 11 ? a : m >= 2 && m <= 4 && (h < 12 || h > 14) ? b : c; };
 const todayISO = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 const stripTags = s => s.replace(/<[^>]+>/g, '');
 const fmtT = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
 const isMobile = () => innerWidth < 900;
 
 function toast(msg) {
-  const t = document.querySelector('.toast');
-  t.textContent = msg; t.hidden = false;
-  clearTimeout(t._h); t._h = setTimeout(() => { t.hidden = true; }, 3200);
+  const el = document.querySelector('.toast');
+  el.textContent = msg; el.hidden = false;
+  clearTimeout(el._h); el._h = setTimeout(() => { el.hidden = true; }, 3200);
 }
+
+// ================================================================ language
+function applyStatic() {
+  document.documentElement.lang = lang;
+  document.title = t('doc_title');
+  document.querySelector('meta[name="description"]')?.setAttribute('content', t('doc_desc'));
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => el.setAttribute('aria-label', t(el.dataset.i18nAria)));
+  document.querySelectorAll('[data-i18n-title]').forEach(el => el.setAttribute('title', t(el.dataset.i18nTitle)));
+  document.querySelectorAll('[data-lang]').forEach(b => b.setAttribute('aria-checked', String(b.dataset.lang === lang)));
+}
+document.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => {
+  if (b.dataset.lang === lang) return;
+  setLang(b.dataset.lang);
+  applyStatic();
+  refreshSidebar();
+  router();
+}));
+applyStatic();
 
 // ================================================================ sidebar
 function setSidebar(state) {
@@ -87,8 +106,8 @@ async function refreshSidebar(activeId = null) {
   list.innerHTML = days.length
     ? days.map(d => `<li><a href="#/day/${d.id}" ${d.id === activeId ? 'aria-current="page"' : ''}>
         <span class="folders__dot" style="background:${moodOf(d).dot}" title="${moodOf(d).name}"></span>
-        <span class="folders__text"><span class="folders__title">${esc(d.title)}</span><span class="folders__date">${formatDate(d.date)}</span></span></a></li>`).join('')
-    : `<li class="field__hint" style="padding:0 var(--s-2)">Дней пока нет</li>`;
+        <span class="folders__text"><span class="folders__title">${esc(loc(d).title)}</span><span class="folders__date">${formatDate(d.date)}</span></span></a></li>`).join('')
+    : `<li class="field__hint" style="padding:0 var(--s-2)">${t('no_days_side')}</li>`;
   const cols = await listCollections();
   const activeFolder = (location.hash.match(/^#\/folder\/([\w-]+)/) || [])[1];
   document.getElementById('collections').innerHTML = cols.map(c => `<li><a href="#/folder/${c.id}" ${c.id === activeFolder ? 'aria-current="page"' : ''}>
@@ -101,9 +120,9 @@ document.getElementById('reseed').addEventListener('click', async e => {
   const b = e.currentTarget; b.classList.add('is-loading'); b.disabled = true;
   try {
     await seedIfEmpty(true);
-    toast('Демо-дни восстановлены');
+    toast(t('demo_restored'));
     router();
-  } catch (err) { console.error(err); toast('Не удалось восстановить демо-дни'); }
+  } catch (err) { console.error(err); toast(t('demo_restore_fail')); }
   b.classList.remove('is-loading'); b.disabled = false;
 });
 
@@ -138,27 +157,27 @@ window.addEventListener('hashchange', router);
 
 // ================================================================ archive
 async function renderArchive() {
-  setCrumbs([{ label: 'Все дни' }]);
+  setCrumbs([{ label: t('all_days') }]);
   const pref = JSON.parse(localStorage.getItem('mm-archive') || '{}');
   let filter = MOODS[pref.filter] || String(pref.filter || '').startsWith('emo:') ? pref.filter : '', sort = SORTS[pref.sort] ? pref.sort : 'new', query = '';
   main.innerHTML = `
     <div class="page">
       <div class="page-head">
         <div>
-          <h1 class="title">Дневник</h1>
-          <p class="lead">Каждый день здесь — папка: запись, фото и песня, собранные в живое воспоминание.</p>
+          <h1 class="title">${t('diary')}</h1>
+          <p class="lead">${t('diary_lead')}</p>
         </div>
-        <a class="btn btn--primary btn--lg" href="#/new">${svg('<path d="M8 3v10M3 8h10"/>', 1.6)}<span>Новый день</span></a>
+        <a class="btn btn--primary btn--lg" href="#/new">${svg('<path d="M8 3v10M3 8h10"/>', 1.6)}<span>${t('new_day')}</span></a>
       </div>
       <div class="toolbar">
-        <label class="visually-hidden" for="q">Поиск по дневнику</label>
-        <input class="input input--search" id="q" type="search" placeholder="Поиск по дням" autocomplete="off">
-        <label class="visually-hidden" for="sort">Сортировка</label>
-        <select class="select select--sm" id="sort">${Object.entries(SORTS).map(([k, [l]]) => `<option value="${k}" ${k === sort ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <label class="visually-hidden" for="q">${t('search_diary')}</label>
+        <input class="input input--search" id="q" type="search" placeholder="${t('search_days')}" autocomplete="off">
+        <label class="visually-hidden" for="sort">${t('sort')}</label>
+        <select class="select select--sm" id="sort">${Object.entries(SORTS).map(([k, [l]]) => `<option value="${k}" ${k === sort ? 'selected' : ''}>${t(l)}</option>`).join('')}</select>
         <span class="toolbar__count mono" id="count"></span>
       </div>
-      <div class="chips toolbar" role="group" aria-label="Настроение дня" id="moods">
-        <button class="chip" type="button" data-f="" aria-pressed="${!filter}">Все</button>
+      <div class="chips toolbar" role="group" aria-label="${t('day_mood')}" id="moods">
+        <button class="chip" type="button" data-f="" aria-pressed="${!filter}">${t('all')}</button>
         ${MOOD_ORDER.map(k => `<button class="chip" type="button" data-f="${k}" aria-pressed="${filter === k}"><span class="chip__dot" style="background:${MOODS[k].dot}"></span>${MOODS[k].name}<span class="chip__n" data-n="${k}"></span></button>`).join('')}
       </div>
       <div class="feed" id="feed" aria-live="polite" aria-busy="true">
@@ -167,7 +186,7 @@ async function renderArchive() {
     </div>`;
 
   const count = $('#count');
-  await ensureSeed((i, n) => { if (count) count.textContent = `Собираю демо-дни ${i}/${n}…`; refreshSidebar(); });
+  await ensureSeed((i, n) => { if (count) count.textContent = t('seeding', { i, n }); refreshSidebar(); });
   const days = await db.all();
   refreshSidebar();
   if (!main.contains(count)) return; // user navigated away while seeding
@@ -185,15 +204,15 @@ async function renderArchive() {
   const draw = () => {
     localStorage.setItem('mm-archive', JSON.stringify({ filter, sort }));
     const q = query.trim().toLowerCase();
-    const list = days.filter(d => matches(d) && (!q || d.title.toLowerCase().includes(q) || d.text.toLowerCase().includes(q) || (d.songLabel || '').toLowerCase().includes(q)))
+    const list = days.filter(d => matches(d) && (!q || loc(d).title.toLowerCase().includes(q) || loc(d).text.toLowerCase().includes(q) || (d.songLabel || '').toLowerCase().includes(q)))
       .sort(SORTS[sort][1]);
-    count.textContent = `${list.length} ${plural(list.length, 'день', 'дня', 'дней')}`;
+    count.textContent = daysN(list.length);
     if (!days.length) {
-      feed.innerHTML = `<div class="empty"><p class="h3">Дневник пока пуст</p><p class="muted">Начните с одного из самых любимых дней.</p><a class="btn btn--primary" href="#/new">Новый день</a></div>`;
+      feed.innerHTML = `<div class="empty"><p class="h3">${t('diary_empty')}</p><p class="muted">${t('diary_empty_hint')}</p><a class="btn btn--primary" href="#/new">${t('new_day')}</a></div>`;
       return;
     }
     if (!list.length) {
-      feed.innerHTML = `<div class="empty"><p class="h3">Таких дней пока нет</p><p class="muted">Выберите другое настроение или сбросьте поиск.</p></div>`;
+      feed.innerHTML = `<div class="empty"><p class="h3">${t('no_match')}</p><p class="muted">${t('no_match_hint')}</p></div>`;
       return;
     }
     feed.innerHTML = list.map(d => dayCard(d)).join('');
@@ -208,9 +227,9 @@ async function renderArchive() {
   }));
 
   // posters made by the previous renderer are redrawn once
-  for (const d of days.filter(x => x.posterV !== 3)) {
+  for (const d of days.filter(x => x.posterV !== 3 || (x.posterLang || 'any') !== posterLangOf(x))) {
     try {
-      d.poster = await renderPoster(d); d.posterV = 3; await db.put(d);
+      d.poster = await renderPoster(loc(d)); d.posterV = 3; d.posterLang = posterLangOf(d); await db.put(d);
       const img = main.querySelector(`[data-poster="${d.id}"]`);
       if (img) img.src = objURL(d.poster);
     } catch (e) { console.warn('poster', e); }
@@ -218,13 +237,14 @@ async function renderArchive() {
 }
 
 // ================================================================ shared day card
-function dayCard(d, extra = '') {
+function dayCard(d0, extra = '') {
+  const d = loc(d0);
   const emo = [...(d.analysis?.ai?.emotions || []), ...(d.ownEmotions || [])];
   return `
     <div class="day-card-wrap">
       <a class="day-card fade-in" href="#/day/${d.id}">
         <div class="day-card__poster">
-          <img src="${objURL(d.poster)}" alt="Воспоминание дня «${esc(d.title)}»" loading="lazy" width="720" height="900" data-poster="${d.id}">
+          <img src="${objURL(d.poster)}" alt="${esc(t('memory_of', { t: d.title }))}" loading="lazy" width="720" height="900" data-poster="${d.id}">
         </div>
         <p class="day-card__title">${I.folder}<span>${esc(d.title)}</span></p>
         <div class="day-card__meta">
@@ -256,20 +276,20 @@ function dayPickerHTML(days, chosen) {
     <li><label class="pick">
       <input type="checkbox" value="${d.id}" ${chosen.includes(d.id) ? 'checked' : ''}>
       <img src="${objURL(d.poster)}" alt="" width="40" height="50">
-      <span class="pick__text"><span class="pick__title">${esc(d.title)}</span><span class="pick__sub"><span class="chip__dot" style="background:${moodOf(d).dot}"></span>${moodOf(d).name} · ${formatDate(d.date)}</span></span>
-    </label></li>`).join('')}</ul>` : '<p class="field__hint">В дневнике пока нет дней.</p>';
+      <span class="pick__text"><span class="pick__title">${esc(loc(d).title)}</span><span class="pick__sub"><span class="chip__dot" style="background:${moodOf(d).dot}"></span>${moodOf(d).name} · ${formatDate(d.date)}</span></span>
+    </label></li>`).join('')}</ul>` : `<p class="field__hint">${t('no_days_diary')}</p>`;
 }
 
 async function openNewFolder(preselect = []) {
   const days = (await db.all()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   dialog(`
     <form method="dialog" class="modal__body" id="nf-form">
-      <div class="modal__head"><h2 class="h3">Новая папка</h2><button class="btn btn--invisible btn--icon btn--sm" type="button" data-close aria-label="Закрыть">${I.x}</button></div>
-      <div class="field"><label class="field__label" for="nf-name">Название</label>
-        <input class="input" id="nf-name" maxlength="60" placeholder="Например: Лето 2026 или Дни с друзьями" required autocomplete="off">
-        <p class="error-text" id="nf-err" hidden>Придумайте название папки.</p></div>
-      <div class="field"><span class="field__label">Дни в папке</span>${dayPickerHTML(days, preselect)}</div>
-      <div class="modal__actions"><button class="btn" type="button" data-close>Отмена</button><button class="btn btn--primary" type="submit">Создать папку</button></div>
+      <div class="modal__head"><h2 class="h3">${t('new_folder')}</h2><button class="btn btn--invisible btn--icon btn--sm" type="button" data-close aria-label="${t('close')}">${I.x}</button></div>
+      <div class="field"><label class="field__label" for="nf-name">${t('name')}</label>
+        <input class="input" id="nf-name" maxlength="60" placeholder="${t('folder_name_ph')}" required autocomplete="off">
+        <p class="error-text" id="nf-err" hidden>${t('folder_name_err')}</p></div>
+      <div class="field"><span class="field__label">${t('days_in_folder')}</span>${dayPickerHTML(days, preselect)}</div>
+      <div class="modal__actions"><button class="btn" type="button" data-close>${t('cancel')}</button><button class="btn btn--primary" type="submit">${t('create_folder')}</button></div>
     </form>`, {
     onOpen: dlg => {
       dlg.querySelector('#nf-name').focus();
@@ -280,7 +300,7 @@ async function openNewFolder(preselect = []) {
         const dayIds = [...dlg.querySelectorAll('.pick input:checked')].map(i => i.value);
         const c = await saveCollection({ name, dayIds });
         dlg.close();
-        toast('Папка создана');
+        toast(t('folder_created'));
         location.hash = `#/folder/${c.id}`;
         refreshSidebar();
       });
@@ -293,10 +313,10 @@ async function openFolderPicker(dayId, done) {
   const cols = await listCollections();
   dialog(`
     <form method="dialog" class="modal__body" id="fp-form">
-      <div class="modal__head"><h2 class="h3">Добавить в папку</h2><button class="btn btn--invisible btn--icon btn--sm" type="button" data-close aria-label="Закрыть">${I.x}</button></div>
-      ${cols.length ? `<ul class="pick-list">${cols.map(c => `<li><label class="pick pick--plain"><input type="checkbox" value="${c.id}" ${c.dayIds.includes(dayId) ? 'checked' : ''}>${I.folder}<span class="pick__title">${esc(c.name)}</span><span class="pick__sub">${c.dayIds.length} ${plural(c.dayIds.length, 'день', 'дня', 'дней')}</span></label></li>`).join('')}</ul>` : '<p class="field__hint">Папок пока нет — создайте первую.</p>'}
-      <div class="field"><label class="field__label" for="fp-new">Новая папка</label><input class="input" id="fp-new" maxlength="60" placeholder="Название новой папки" autocomplete="off"></div>
-      <div class="modal__actions"><button class="btn" type="button" data-close>Отмена</button><button class="btn btn--primary" type="submit">Сохранить</button></div>
+      <div class="modal__head"><h2 class="h3">${t('add_to_folder')}</h2><button class="btn btn--invisible btn--icon btn--sm" type="button" data-close aria-label="${t('close')}">${I.x}</button></div>
+      ${cols.length ? `<ul class="pick-list">${cols.map(c => `<li><label class="pick pick--plain"><input type="checkbox" value="${c.id}" ${c.dayIds.includes(dayId) ? 'checked' : ''}>${I.folder}<span class="pick__title">${esc(c.name)}</span><span class="pick__sub">${daysN(c.dayIds.length)}</span></label></li>`).join('')}</ul>` : `<p class="field__hint">${t('no_folders_yet')}</p>`}
+      <div class="field"><label class="field__label" for="fp-new">${t('new_folder')}</label><input class="input" id="fp-new" maxlength="60" placeholder="${t('new_folder_ph')}" autocomplete="off"></div>
+      <div class="modal__actions"><button class="btn" type="button" data-close>${t('cancel')}</button><button class="btn btn--primary" type="submit">${t('save')}</button></div>
     </form>`, {
     onOpen: dlg => dlg.querySelector('#fp-form').addEventListener('submit', async e => {
       e.preventDefault();
@@ -308,7 +328,7 @@ async function openFolderPicker(dayId, done) {
       const name = dlg.querySelector('#fp-new').value.trim();
       if (name) await saveCollection({ name, dayIds: [dayId] });
       dlg.close();
-      toast('Папки обновлены');
+      toast(t('folders_updated'));
       done?.();
     }),
   });
@@ -319,11 +339,11 @@ async function renderFolder(id) {
   const c = await getCollection(id);
   refreshSidebar();
   if (!c) {
-    setCrumbs([{ label: 'Все дни', href: '#/' }, { label: 'Не найдено' }]);
-    main.innerHTML = `<div class="page"><div class="empty"><p class="h3">Такой папки нет</p><a class="btn" href="#/">Ко всем дням</a></div></div>`;
+    setCrumbs([{ label: t('all_days'), href: '#/' }, { label: t('not_found') }]);
+    main.innerHTML = `<div class="page"><div class="empty"><p class="h3">${t('no_folder')}</p><a class="btn" href="#/">${t('to_all_days')}</a></div></div>`;
     return;
   }
-  setCrumbs([{ label: 'Все дни', href: '#/' }, { label: c.name }]);
+  setCrumbs([{ label: t('all_days'), href: '#/' }, { label: c.name }]);
   const all = await db.all();
   const days = c.dayIds.map(x => all.find(d => d.id === x)).filter(Boolean).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const moods = {};
@@ -332,23 +352,23 @@ async function renderFolder(id) {
     <div class="page">
       <div class="page-head">
         <div>
-          <p class="label" style="display:flex;align-items:center;gap:var(--s-2)">${I.folder}Папка</p>
+          <p class="label" style="display:flex;align-items:center;gap:var(--s-2)">${I.folder}${t('folder')}</p>
           <h1 class="title" id="f-title">${esc(c.name)}</h1>
-          <p class="lead">${days.length ? `${days.length} ${plural(days.length, 'день', 'дня', 'дней')}${days.length > 1 ? ` · ${formatDate(days[0].date)} — ${formatDate(days[days.length - 1].date)}` : ''}` : 'Пока пустая'}${Object.keys(moods).length ? ' · ' + Object.entries(moods).map(([m, n]) => `${m.toLowerCase()} ${n}`).join(', ') : ''}</p>
+          <p class="lead">${days.length ? `${daysN(days.length)}${days.length > 1 ? ` · ${formatDate(days[0].date)} — ${formatDate(days[days.length - 1].date)}` : ''}` : t('folder_empty_short')}${Object.keys(moods).length ? ' · ' + Object.entries(moods).map(([m, n]) => `${m.toLowerCase()} ${n}`).join(', ') : ''}</p>
         </div>
         <div class="actions" style="margin:0">
-          <button class="btn btn--primary" type="button" id="f-add">${svg('<path d="M8 3v10M3 8h10"/>', 1.6)}<span>Добавить дни</span></button>
-          <button class="btn" type="button" id="f-rename">Переименовать</button>
-          <button class="btn btn--invisible btn--danger" type="button" id="f-del">${I.trash}<span>Удалить папку</span></button>
+          <button class="btn btn--primary" type="button" id="f-add">${svg('<path d="M8 3v10M3 8h10"/>', 1.6)}<span>${t('add_days')}</span></button>
+          <button class="btn" type="button" id="f-rename">${t('rename')}</button>
+          <button class="btn btn--invisible btn--danger" type="button" id="f-del">${I.trash}<span>${t('delete_folder')}</span></button>
         </div>
       </div>
       <div class="confirm" id="f-confirm" hidden style="margin-bottom:var(--s-5)">
-        <p>Удалить папку «${esc(c.name)}»? Сами дни останутся в дневнике.</p>
-        <div class="confirm__actions"><button class="btn btn--sm btn--danger-solid" id="f-del-yes" type="button">Удалить</button><button class="btn btn--sm" id="f-del-no" type="button">Отмена</button></div>
+        <p>${esc(t('delete_folder_q', { n: c.name }))}</p>
+        <div class="confirm__actions"><button class="btn btn--sm btn--danger-solid" id="f-del-yes" type="button">${t('delete')}</button><button class="btn btn--sm" id="f-del-no" type="button">${t('cancel')}</button></div>
       </div>
       <div class="feed" id="f-feed">
-        ${days.length ? days.map(d => dayCard(d, `<button class="btn btn--sm btn--invisible day-card__remove" type="button" data-out="${d.id}">${I.x}<span>Убрать из папки</span></button>`)).join('')
-          : `<div class="empty"><p class="h3">В папке пока нет дней</p><p class="muted">Соберите сюда дни с разных дат: поездку, лето, дни с близкими.</p><button class="btn btn--primary" type="button" data-add>Добавить дни</button></div>`}
+        ${days.length ? days.map(d => dayCard(d, `<button class="btn btn--sm btn--invisible day-card__remove" type="button" data-out="${d.id}">${I.x}<span>${t('remove_from_folder')}</span></button>`)).join('')
+          : `<div class="empty"><p class="h3">${t('folder_empty')}</p><p class="muted">${t('folder_empty_hint')}</p><button class="btn btn--primary" type="button" data-add>${t('add_days')}</button></div>`}
       </div>
     </div>`;
 
@@ -356,9 +376,9 @@ async function renderFolder(id) {
     const all2 = (await db.all()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     dialog(`
       <form method="dialog" class="modal__body" id="fa-form">
-        <div class="modal__head"><h2 class="h3">Дни в папке «${esc(c.name)}»</h2><button class="btn btn--invisible btn--icon btn--sm" type="button" data-close aria-label="Закрыть">${I.x}</button></div>
+        <div class="modal__head"><h2 class="h3">${esc(t('days_in_named', { n: c.name }))}</h2><button class="btn btn--invisible btn--icon btn--sm" type="button" data-close aria-label="${t('close')}">${I.x}</button></div>
         ${dayPickerHTML(all2, c.dayIds)}
-        <div class="modal__actions"><button class="btn" type="button" data-close>Отмена</button><button class="btn btn--primary" type="submit">Сохранить</button></div>
+        <div class="modal__actions"><button class="btn" type="button" data-close>${t('cancel')}</button><button class="btn btn--primary" type="submit">${t('save')}</button></div>
       </form>`, {
       onOpen: dlg => dlg.querySelector('#fa-form').addEventListener('submit', async e => {
         e.preventDefault();
@@ -372,9 +392,9 @@ async function renderFolder(id) {
   $('#f-rename').addEventListener('click', () => {
     dialog(`
       <form method="dialog" class="modal__body" id="fr-form">
-        <div class="modal__head"><h2 class="h3">Переименовать папку</h2><button class="btn btn--invisible btn--icon btn--sm" type="button" data-close aria-label="Закрыть">${I.x}</button></div>
-        <div class="field"><label class="field__label" for="fr-name">Название</label><input class="input" id="fr-name" maxlength="60" value="${esc(c.name)}" required autocomplete="off"></div>
-        <div class="modal__actions"><button class="btn" type="button" data-close>Отмена</button><button class="btn btn--primary" type="submit">Сохранить</button></div>
+        <div class="modal__head"><h2 class="h3">${t('rename_folder')}</h2><button class="btn btn--invisible btn--icon btn--sm" type="button" data-close aria-label="${t('close')}">${I.x}</button></div>
+        <div class="field"><label class="field__label" for="fr-name">${t('name')}</label><input class="input" id="fr-name" maxlength="60" value="${esc(c.name)}" required autocomplete="off"></div>
+        <div class="modal__actions"><button class="btn" type="button" data-close>${t('cancel')}</button><button class="btn btn--primary" type="submit">${t('save')}</button></div>
       </form>`, {
       onOpen: dlg => {
         const inp = dlg.querySelector('#fr-name'); inp.select();
@@ -388,18 +408,18 @@ async function renderFolder(id) {
   });
   $('#f-del').addEventListener('click', () => { $('#f-confirm').hidden = false; $('#f-del-no').focus(); });
   $('#f-del-no').addEventListener('click', () => { $('#f-confirm').hidden = true; });
-  $('#f-del-yes').addEventListener('click', async () => { await removeCollection(c.id); toast('Папка удалена'); location.hash = '#/'; refreshSidebar(); });
+  $('#f-del-yes').addEventListener('click', async () => { await removeCollection(c.id); toast(t('folder_deleted')); location.hash = '#/'; refreshSidebar(); });
   $('#f-feed').addEventListener('click', async e => {
     const b = e.target.closest('[data-out]'); if (!b) return;
     await saveCollection({ ...c, dayIds: c.dayIds.filter(x => x !== b.dataset.out) });
-    toast('День убран из папки'); router();
+    toast(t('day_removed_from_folder')); router();
   });
 }
 
 
 // ================================================================ new entry
 async function renderNew() {
-  setCrumbs([{ label: 'Все дни', href: '#/' }, { label: 'Новый день' }]);
+  setCrumbs([{ label: t('all_days'), href: '#/' }, { label: t('new_day') }]);
   refreshSidebar();
   const state = { photos: [], songMode: 'search', track: null, file: null, fileAnalysis: null };
   const preview = new Audio();
@@ -409,78 +429,78 @@ async function renderNew() {
   main.innerHTML = `
     <div class="page">
       <div class="page-head"><div>
-        <h1 class="title">Как прошёл день?</h1>
-        <p class="lead">Пара строк, фото и песня, которая тогда звучала. Остальное Moodmark сделает сам.</p>
+        <h1 class="title">${t('how_was')}</h1>
+        <p class="lead">${t('how_was_lead')}</p>
       </div></div>
       <div class="compose">
         <form id="form" class="card" novalidate>
           <section class="step">
-            <div class="step__head"><span class="step__num">01</span><label class="h3" for="text">Запись</label></div>
-            <textarea class="textarea" id="text" placeholder="Расскажите, как близкому другу: где были, с кем, какая была погода, что запомнилось." required></textarea>
-            <div style="display:flex;justify-content:space-between;gap:var(--s-3)"><span class="field__hint">Чем конкретнее, тем точнее воспоминание.</span><span class="field__hint mono" id="chars">0</span></div>
-            <p class="error-text" data-err="text" hidden>Напишите хотя бы одно предложение о дне.</p>
+            <div class="step__head"><span class="step__num">01</span><label class="h3" for="text">${t('entry')}</label></div>
+            <textarea class="textarea" id="text" placeholder="${t('entry_ph')}" required></textarea>
+            <div style="display:flex;justify-content:space-between;gap:var(--s-3)"><span class="field__hint">${t('entry_hint')}</span><span class="field__hint mono" id="chars">0</span></div>
+            <p class="error-text" data-err="text" hidden>${t('entry_err')}</p>
           </section>
 
           <section class="step">
-            <div class="step__head"><span class="step__num">02</span><span class="h3" id="photos-label">Фото</span><span class="step__opt">до 8 штук</span></div>
+            <div class="step__head"><span class="step__num">02</span><span class="h3" id="photos-label">${t('photos')}</span><span class="step__opt">${t('up_to_8')}</span></div>
             <label class="dropzone" id="drop" tabindex="0" aria-labelledby="photos-label">
               ${I.upload}
-              <span><b style="font-weight:500">Выберите фото</b> или перетащите сюда</span>
+              <span><b style="font-weight:500">${t('choose_photos')}</b> ${t('or_drop')}</span>
               <span class="field__hint">JPG, PNG, WebP</span>
               <input type="file" id="photos" accept="image/*" multiple class="visually-hidden">
             </label>
             <div class="thumbs" id="thumbs"></div>
-            <p class="error-text" data-err="photos" hidden>Добавьте минимум одно фото.</p>
+            <p class="error-text" data-err="photos" hidden>${t('photos_err')}</p>
           </section>
 
           <section class="step">
-            <div class="step__head"><span class="step__num">03</span><span class="h3">Песня</span>
-              <div class="segmented" role="radiogroup" aria-label="Источник песни" style="margin-left:auto">
-                <button type="button" role="radio" aria-checked="true" data-mode="search">Найти</button>
-                <button type="button" role="radio" aria-checked="false" data-mode="file">Свой файл</button>
+            <div class="step__head"><span class="step__num">03</span><span class="h3">${t('song')}</span>
+              <div class="segmented" role="radiogroup" aria-label="${t('song_source')}" style="margin-left:auto">
+                <button type="button" role="radio" aria-checked="true" data-mode="search">${t('find')}</button>
+                <button type="button" role="radio" aria-checked="false" data-mode="file">${t('own_file')}</button>
               </div>
             </div>
             <div data-pane="search" class="field">
               <div id="picked"></div>
               <div id="finder" class="field">
-                <label class="visually-hidden" for="song-q">Поиск песни</label>
-                <input class="input input--search" id="song-q" type="search" placeholder="Песня или исполнитель" autocomplete="off">
+                <label class="visually-hidden" for="song-q">${t('song_search')}</label>
+                <input class="input input--search" id="song-q" type="search" placeholder="${t('song_ph')}" autocomplete="off">
                 <ul class="tracks" id="tracks" aria-live="polite"></ul>
-                <span class="field__hint">Каталог Apple Music. Отрывок песни будет звучать вместе с воспоминанием прямо на сайте.</span>
+                <span class="field__hint">${t('song_hint')}</span>
               </div>
             </div>
             <div data-pane="file" class="field" hidden>
               <label class="dropzone" for="audio" style="padding:var(--s-5)">
                 ${I.music}
-                <span id="audio-name"><b style="font-weight:500">Выберите аудиофайл</b></span>
+                <span id="audio-name"><b style="font-weight:500">${t('choose_audio')}</b></span>
                 <span class="field__hint">MP3, M4A, WAV</span>
               </label>
               <input type="file" id="audio" accept="audio/*" class="visually-hidden">
               <div id="audio-result" class="song-meta"></div>
             </div>
-            <p class="error-text" data-err="song" hidden>Выберите песню дня.</p>
+            <p class="error-text" data-err="song" hidden>${t('song_err')}</p>
           </section>
 
           <section class="step">
-            <div class="step__head"><span class="step__num">04</span><span class="h3">Детали</span><span class="step__opt">необязательно</span></div>
+            <div class="step__head"><span class="step__num">04</span><span class="h3">${t('details')}</span><span class="step__opt">${t('optional')}</span></div>
             <div class="field">
-              <label class="field__label" for="own-emo">Свои эмоции</label>
-              <input class="input" id="own-emo" placeholder="Например: ностальгия, предвкушение, лёгкость" autocomplete="off">
-              <span class="field__hint">Через запятую. Добавятся к эмоциям, которые найдёт ИИ, и появятся в фильтрах дневника.</span>
+              <label class="field__label" for="own-emo">${t('own_emotions')}</label>
+              <input class="input" id="own-emo" placeholder="${t('own_emotions_ph')}" autocomplete="off">
+              <span class="field__hint">${t('own_emotions_hint')}</span>
             </div>
             <div class="grid-3">
-              <div class="field"><label class="field__label" for="date">Дата</label><input class="input" id="date" type="date" value="${todayISO()}" max="${todayISO()}"></div>
-              <div class="field"><label class="field__label" for="tod">Время суток</label>
-                <select class="select" id="tod"><option value="">Из записи</option><option value="morning">Утро</option><option value="day">День</option><option value="evening">Вечер</option><option value="night">Ночь</option></select></div>
-              <div class="field"><label class="field__label" for="weather">Погода</label>
-                <select class="select" id="weather"><option value="">Из записи</option><option value="sun">Ясно</option><option value="rain">Дождь</option><option value="snow">Снег</option><option value="fog">Туман</option><option value="wind">Ветер</option></select></div>
+              <div class="field"><label class="field__label" for="date">${t('date')}</label><input class="input" id="date" type="date" value="${todayISO()}" max="${todayISO()}"></div>
+              <div class="field"><label class="field__label" for="tod">${t('time_of_day')}</label>
+                <select class="select" id="tod"><option value="">${t('from_entry')}</option><option value="morning">${t('morning')}</option><option value="day">${t('daytime')}</option><option value="evening">${t('evening')}</option><option value="night">${t('night')}</option></select></div>
+              <div class="field"><label class="field__label" for="weather">${t('weather')}</label>
+                <select class="select" id="weather"><option value="">${t('from_entry')}</option><option value="sun">${t('w_sun')}</option><option value="rain">${t('w_rain')}</option><option value="snow">${t('w_snow')}</option><option value="fog">${t('w_fog')}</option><option value="wind">${t('w_wind')}</option></select></div>
             </div>
           </section>
 
           <div class="form-progress" id="live" aria-live="polite" hidden></div>
           <div class="form-actions">
-            <button class="btn btn--primary btn--lg" type="submit" id="submit"><span class="spinner" aria-hidden="true"></span><span>Собрать воспоминание</span></button>
-            <a class="btn btn--lg" href="#/">Отмена</a>
+            <button class="btn btn--primary btn--lg" type="submit" id="submit"><span class="spinner" aria-hidden="true"></span><span>${t('build')}</span></button>
+            <a class="btn btn--lg" href="#/">${t('cancel')}</a>
           </div>
         </form>
 
@@ -494,7 +514,7 @@ async function renderNew() {
   // ---- photos
   const thumbs = $('#thumbs');
   const drawThumbs = () => {
-    thumbs.innerHTML = state.photos.map((p, i) => `<div class="thumb"><img src="${p.url}" alt="Фото ${i + 1}"><button class="btn btn--icon btn--sm" type="button" data-rm="${i}" aria-label="Удалить фото ${i + 1}">${I.x}</button></div>`).join('');
+    thumbs.innerHTML = state.photos.map((p, i) => `<div class="thumb"><img src="${p.url}" alt="${t('photo_n', { n: i + 1 })}"><button class="btn btn--icon btn--sm" type="button" data-rm="${i}" aria-label="${t('remove_photo_n', { n: i + 1 })}">${I.x}</button></div>`).join('');
   };
   thumbs.addEventListener('click', e => {
     const b = e.target.closest('[data-rm]'); if (!b) return;
@@ -502,9 +522,9 @@ async function renderNew() {
   });
   const addPhotos = files => {
     const ok = [...files].filter(f => f.type.startsWith('image/'));
-    if (!ok.length && files.length) toast('Это не похоже на фото');
+    if (!ok.length && files.length) toast(t('not_photo'));
     ok.slice(0, 8 - state.photos.length).forEach(f => state.photos.push({ file: f, url: objURL(f) }));
-    if (state.photos.length >= 8 && ok.length) toast('Можно добавить до 8 фото');
+    if (state.photos.length >= 8 && ok.length) toast(t('max_8'));
     drawThumbs(); updateSignals();
     if (state.photos.length) $('[data-err="photos"]').hidden = true;
   };
@@ -526,16 +546,16 @@ async function renderNew() {
   // ---- song: search + preview
   let results = [];
   const playIcon = id => (previewId === id && !preview.paused ? I.pause : I.play);
-  const trackRow = (t, selected = false) => `
-    <li class="track${selected ? ' track--selected' : ''}" data-id="${t.id}">
-      <span class="track__art"><img src="${esc(t.thumb)}" alt="" loading="lazy"></span>
-      <span class="track__body"><span class="track__title">${esc(t.title)}</span><span class="track__sub">${esc(t.artist)}${t.year ? ' · ' + t.year : ''}${t.genreName ? ' · ' + esc(t.genreName) : ''}</span></span>
+  const trackRow = (tr, selected = false) => `
+    <li class="track${selected ? ' track--selected' : ''}" data-id="${tr.id}">
+      <span class="track__art"><img src="${esc(tr.thumb)}" alt="" loading="lazy"></span>
+      <span class="track__body"><span class="track__title">${esc(tr.title)}</span><span class="track__sub">${esc(tr.artist)}${tr.year ? ' · ' + tr.year : ''}${tr.genreName ? ' · ' + esc(tr.genreName) : ''}</span></span>
       <span class="track__actions">
-        <button class="btn btn--icon btn--sm" type="button" data-preview="${t.id}" aria-label="Послушать отрывок: ${esc(t.title)}">${playIcon(t.id)}</button>
-        ${selected ? `<button class="btn btn--sm" type="button" data-change>Изменить</button>` : `<button class="btn btn--sm" type="button" data-pick="${t.id}">Выбрать</button>`}
+        <button class="btn btn--icon btn--sm" type="button" data-preview="${tr.id}" aria-label="${esc(t('listen_preview', { t: tr.title }))}">${playIcon(tr.id)}</button>
+        ${selected ? `<button class="btn btn--sm" type="button" data-change>${t('change')}</button>` : `<button class="btn btn--sm" type="button" data-pick="${tr.id}">${t('choose')}</button>`}
       </span>
     </li>`;
-  const drawResults = (html) => { $('#tracks').innerHTML = html ?? results.map(t => trackRow(t)).join(''); };
+  const drawResults = (html) => { $('#tracks').innerHTML = html ?? results.map(x => trackRow(x)).join(''); };
   const drawPicked = () => {
     $('#picked').innerHTML = state.track ? `<ul class="tracks" style="border:0">${trackRow(state.track, true)}</ul>` : '';
     $('#finder').hidden = !!state.track;
@@ -551,14 +571,14 @@ async function renderNew() {
     clearTimeout(qTimer);
     const q = e.target.value.trim();
     if (q.length < 2) { results = []; drawResults(''); return; }
-    drawResults(`<li class="tracks__state"><span class="spinner" aria-hidden="true"></span>Ищу «${esc(q)}»…</li>`);
+    drawResults(`<li class="tracks__state"><span class="spinner" aria-hidden="true"></span>${esc(t('searching', { q }))}</li>`);
     qTimer = setTimeout(async () => {
       try {
         results = await searchTracks(q);
-        drawResults(results.length ? undefined : `<li class="tracks__state">Ничего не нашлось. Попробуйте написать исполнителя латиницей.</li>`);
+        drawResults(results.length ? undefined : `<li class="tracks__state">${t('nothing_found')}</li>`);
       } catch (err) {
         if (err.name === 'AbortError') return;
-        drawResults(`<li class="tracks__state">Поиск сейчас недоступен. Можно загрузить свой файл.</li>`);
+        drawResults(`<li class="tracks__state">${t('search_down')}</li>`);
       }
     }, 320);
   });
@@ -566,10 +586,10 @@ async function renderNew() {
     const pv = e.target.closest('[data-preview]');
     if (pv) {
       const id = +pv.dataset.preview;
-      const t = state.track?.id === id ? state.track : results.find(r => r.id === id);
+      const tk = state.track?.id === id ? state.track : results.find(r => r.id === id);
       if (previewId === id && !preview.paused) { preview.pause(); return; }
-      previewId = id; preview.src = t.preview; preview.volume = 0.8;
-      preview.play().catch(() => toast('Не удалось включить отрывок'));
+      previewId = id; preview.src = tk.preview; preview.volume = 0.8;
+      preview.play().catch(() => toast(t('preview_fail')));
       refreshIcons();
       return;
     }
@@ -593,15 +613,15 @@ async function renderNew() {
     state.file = f; state.fileAnalysis = null;
     $('#audio-name').innerHTML = `<b style="font-weight:500">${esc(f.name)}</b>`;
     const box = $('#audio-result');
-    box.innerHTML = `<span class="spinner" aria-hidden="true"></span><span>Слушаю песню: темп, лад, энергия…</span>`;
+    box.innerHTML = `<span class="spinner" aria-hidden="true"></span><span>${t('listening')}</span>`;
     $('[data-err="song"]').hidden = true;
     try {
       const a = await analyzeAudioFile(f);
       state.fileAnalysis = a;
-      box.innerHTML = `${I.check}<span>${a.bpm} BPM · ${a.key} ${a.mode === 'major' ? 'мажор' : 'минор'} · энергия ${Math.round(a.energy * 100)}%</span>`;
+      box.innerHTML = `${I.check}<span>${a.bpm} BPM · ${a.key} ${t(a.mode)} · ${t('energy')} ${Math.round(a.energy * 100)}%</span>`;
     } catch {
       state.file = null;
-      box.innerHTML = `<span class="error-text">Не удалось прочитать файл. Попробуйте MP3 или M4A.</span>`;
+      box.innerHTML = `<span class="error-text">${t('file_err')}</span>`;
     }
     updateSignals();
   });
@@ -622,11 +642,11 @@ async function renderNew() {
     const btn = $('#submit');
     btn.classList.add('is-loading'); btn.disabled = true;
     const steps = [
-      ['song', 'Загружаю песню'], ...(aiEnabled() ? [['ai', 'ИИ читает запись']] : []), ['text', 'Ищу место, время, погоду'], ['photos', 'Смотрю на фото'],
-      ['music', 'Слушаю темп и лад'], ['style', 'Подбираю приём и палитру'], ['render', 'Рисую воспоминание'], ['save', 'Сохраняю папку дня'],
+      ['song', t('st_song')], ...(aiEnabled() ? [['ai', t('st_ai')]] : []), ['text', t('st_text')], ['photos', t('st_photos')],
+      ['music', t('st_music')], ['style', t('st_style')], ['render', t('st_render')], ['save', t('st_save')],
     ];
     $('#live').hidden = false;
-    $('#live').innerHTML = `<p class="label">Собираю воспоминание</p><ul class="progress">${steps.map(([k, l]) => `<li data-s="${k}"><span class="progress__mark"></span>${l}</li>`).join('')}</ul>`;
+    $('#live').innerHTML = `<p class="label">${t('building')}</p><ul class="progress">${steps.map(([k, l]) => `<li data-s="${k}"><span class="progress__mark"></span>${l}</li>`).join('')}</ul>`;
     $('#live').scrollIntoView({ behavior: 'smooth', block: 'center' });
     const mark = k => {
       let passed = true;
@@ -641,9 +661,9 @@ async function renderNew() {
       mark('song');
       let song;
       if (state.songMode === 'search') {
-        const t = state.track;
-        const file = await fetchPreview(t);
-        song = { kind: 'track', track: t, file, fileName: `${t.artist} - ${t.title}.m4a`, meta: { artist: t.artist, title: t.title, genre: t.genre, year: t.year } };
+        const tk = state.track;
+        const file = await fetchPreview(tk);
+        song = { kind: 'track', track: tk, file, fileName: `${tk.artist} - ${tk.title}.m4a`, meta: { artist: tk.artist, title: tk.title, genre: tk.genre, year: tk.year } };
       } else {
         song = { kind: 'file', file: state.file, fileName: state.file.name, meta: { title: state.file.name.replace(/\.[^.]+$/, '') } };
       }
@@ -657,7 +677,7 @@ async function renderNew() {
     } catch (err) {
       console.error(err);
       btn.classList.remove('is-loading'); btn.disabled = false;
-      $('#live').innerHTML = `<p class="label">Что-то пошло не так</p><p class="error-text">Не получилось собрать воспоминание: ${esc(err.message || 'неизвестная ошибка')}. Попробуйте ещё раз или выберите другое фото.</p>`;
+      $('#live').innerHTML = `<p class="label">${t('went_wrong')}</p><p class="error-text">${esc(t('build_fail', { e: err.message || t('unknown_error') }))}</p>`;
     }
   });
 
@@ -666,20 +686,21 @@ async function renderNew() {
 
 // ================================================================ day page
 async function renderDay(id) {
-  setCrumbs([{ label: 'Все дни', href: '#/' }, { label: '…' }]);
+  setCrumbs([{ label: t('all_days'), href: '#/' }, { label: '…' }]);
   main.innerHTML = `<div class="page"><div class="day"><div class="stage skeleton"></div><div class="day__side"><div class="skeleton skeleton--line" style="width:40%"></div><div class="skeleton" style="height:120px"></div><div class="skeleton" style="height:240px"></div></div></div></div>`;
-  const day = await db.get(id);
+  const raw = await db.get(id);
+  const day = raw && loc(raw);
   refreshSidebar(id);
   if (!day) {
-    setCrumbs([{ label: 'Все дни', href: '#/' }, { label: 'Не найдено' }]);
-    main.innerHTML = `<div class="page"><div class="empty"><p class="h3">Такого дня нет в дневнике</p><a class="btn" href="#/">Ко всем дням</a></div></div>`;
+    setCrumbs([{ label: t('all_days'), href: '#/' }, { label: t('not_found') }]);
+    main.innerHTML = `<div class="page"><div class="empty"><p class="h3">${t('no_day')}</p><a class="btn" href="#/">${t('to_all_days')}</a></div></div>`;
     return;
   }
-  setCrumbs([{ label: 'Все дни', href: '#/' }, { label: day.title }]);
+  setCrumbs([{ label: t('all_days'), href: '#/' }, { label: day.title }]);
   const s = day.style;
   const hasAudio = !!day.song?.file;
   const track = day.song?.track;
-  const songName = songLabel(day.song) || 'Песня дня';
+  const songName = songLabel(day.song) || t('song_of_day');
   const music = day.analysis.music;
 
   main.innerHTML = `
@@ -687,30 +708,30 @@ async function renderDay(id) {
       <div class="day">
         <div>
           <div class="stage">
-            <canvas id="cv" width="${W}" height="${H}" role="img" aria-label="Анимированное воспоминание дня «${esc(day.title)}»"></canvas>
+            <canvas id="cv" width="${W}" height="${H}" role="img" aria-label="${esc(t('animated_memory', { t: day.title }))}"></canvas>
             <div class="stage__loading" id="loading"><span class="spinner" aria-hidden="true"></span></div>
             <div class="stage__controls">
-              <button class="btn btn--glass btn--icon" id="play" type="button" aria-label="Пауза">${I.pause}</button>
-              <button class="btn btn--glass btn--icon" id="restart" type="button" aria-label="С начала">${I.restart}</button>
+              <button class="btn btn--glass btn--icon" id="play" type="button" aria-label="${t('pause')}">${I.pause}</button>
+              <button class="btn btn--glass btn--icon" id="restart" type="button" aria-label="${t('restart')}">${I.restart}</button>
               <span class="btn btn--glass stage__time" id="time">0:00</span>
             </div>
-            <button class="btn btn--glass btn--lg stage__unmute" id="unmute" type="button" hidden>${I.sound}<span>Включить музыку</span></button>
+            <button class="btn btn--glass btn--lg stage__unmute" id="unmute" type="button" hidden>${I.sound}<span>${t('turn_on_music')}</span></button>
           </div>
           ${hasAudio || track ? `
           <div class="player">
-            ${track?.artwork ? `<img class="player__art" src="${esc(track.artwork)}" alt="Обложка: ${esc(songName)}">` : `<span class="player__art" style="display:grid;place-items:center">${I.music}</span>`}
+            ${track?.artwork ? `<img class="player__art" src="${esc(track.artwork)}" alt="${esc(t('cover', { t: songName }))}">` : `<span class="player__art" style="display:grid;place-items:center">${I.music}</span>`}
             <div class="player__body">
               <span class="player__title">${esc(day.song.meta?.title || songName)}</span>
-              <span class="player__sub">${esc(day.song.meta?.artist || '')}${music ? ` · ${music.bpm} BPM · ${music.key ? music.key + ' ' : ''}${music.mode === 'major' ? 'мажор' : 'минор'}` : ''}</span>
-              ${hasAudio ? `<span class="player__bar" id="bar" role="progressbar" aria-label="Прогресс песни" aria-valuemin="0" aria-valuemax="100"><i></i></span>` : ''}
+              <span class="player__sub">${esc(day.song.meta?.artist || '')}${music ? ` · ${music.bpm} BPM · ${music.key ? music.key + ' ' : ''}${t(music.mode === 'major' ? 'major' : 'minor')}` : ''}</span>
+              ${hasAudio ? `<span class="player__bar" id="bar" role="progressbar" aria-label="${t('song_progress')}" aria-valuemin="0" aria-valuemax="100"><i></i></span>` : ''}
             </div>
-            ${hasAudio ? `<button class="btn btn--icon" id="mute" type="button" aria-label="Выключить звук">${I.sound}</button>` : ''}
-            ${track?.url ? `<a class="btn btn--icon" href="${esc(track.url)}" target="_blank" rel="noopener" aria-label="Открыть полную песню в Apple Music">${I.ext}</a>` : ''}
+            ${hasAudio ? `<button class="btn btn--icon" id="mute" type="button" aria-label="${t('mute')}">${I.sound}</button>` : ''}
+            ${track?.url ? `<a class="btn btn--icon" href="${esc(track.url)}" target="_blank" rel="noopener" aria-label="${t('open_apple')}">${I.ext}</a>` : ''}
           </div>` : ''}
           <div class="actions">
-            <button class="btn" id="zip" type="button"><span class="spinner" aria-hidden="true"></span>${I.download}<span>Папка .zip</span></button>
-            <button class="btn" id="vid" type="button"><span class="spinner" aria-hidden="true"></span>${I.video}<span>Видео</span></button>
-            <button class="btn" id="png" type="button"><span class="spinner" aria-hidden="true"></span>${I.image}<span>Кадр .png</span></button>
+            <button class="btn" id="zip" type="button"><span class="spinner" aria-hidden="true"></span>${I.download}<span>${t('zip')}</span></button>
+            <button class="btn" id="vid" type="button"><span class="spinner" aria-hidden="true"></span>${I.video}<span>${t('video')}</span></button>
+            <button class="btn" id="png" type="button"><span class="spinner" aria-hidden="true"></span>${I.image}<span>${t('png')}</span></button>
           </div>
         </div>
 
@@ -720,7 +741,7 @@ async function renderDay(id) {
             <div class="day__meta">
               <span class="mono">№ ${String(day.number).padStart(3, '0')} · ${formatDate(day.date)}</span>
               <span class="badge"><span class="chip__dot" style="background:${moodOf(day).dot}"></span>${moodOf(day).name}</span>
-              ${day.demo ? '<span class="badge">демо</span>' : ''}
+              ${day.demo ? `<span class="badge">${t('demo')}</span>` : ''}
             </div>
             <div class="emotions" id="emotions"></div>
             <div class="day__folders" id="day-folders"></div>
@@ -728,36 +749,36 @@ async function renderDay(id) {
 
           <section class="voice-box">
             <div class="voice-box__head">
-              <p class="section-label" style="margin:0">Мой голос</p>
-              <span class="field__hint">Расскажите о дне своим голосом: запись звучит поверх музыки</span>
+              <p class="section-label" style="margin:0">${t('my_voice')}</p>
+              <span class="field__hint">${t('my_voice_hint')}</span>
             </div>
             <div class="voice-box__row" id="mine-row"></div>
           </section>
 
           <section>
-            <p class="section-label">Запись</p>
+            <p class="section-label">${t('entry')}</p>
             <p class="entry-text" id="entry"></p>
-            <div class="photo-strip">${day.photos.map((p, i) => `<img src="${objURL(p)}" alt="Фото дня ${i + 1}" loading="lazy">`).join('')}</div>
+            <div class="photo-strip">${day.photos.map((p, i) => `<img src="${objURL(p)}" alt="${t('day_photo_n', { n: i + 1 })}" loading="lazy">`).join('')}</div>
           </section>
 
           <section>
-            <p class="section-label">Папка дня</p>
+            <p class="section-label">${t('day_folder')}</p>
             <ul class="files">
-              <li>${I.text}entry.txt<span class="muted">запись</span></li>
-              ${day.photos.map((p, i) => `<li>${I.image}photos/photo-${i + 1}.jpg<span class="muted">${Math.round(p.size / 1024)} КБ</span></li>`).join('')}
-              <li>${I.music}song/${hasAudio ? esc(day.song.fileName || 'song.m4a') : 'song.json'}<span class="muted">${hasAudio ? 'звук' : 'описание'}</span></li>
-              <li>${I.image}memory/memory.png<span class="muted">воспоминание</span></li>
-              ${day.myVoice ? `<li>${I.voice}voice/my-voice.${day.myVoice.type.includes('mp4') ? 'm4a' : 'webm'}<span class="muted">мой голос</span></li>` : ''}
+              <li>${I.text}entry.txt<span class="muted">${t('f_entry')}</span></li>
+              ${day.photos.map((p, i) => `<li>${I.image}photos/photo-${i + 1}.jpg<span class="muted">${Math.round(p.size / 1024)} ${t('kb')}</span></li>`).join('')}
+              <li>${I.music}song/${hasAudio ? esc(day.song.fileName || 'song.m4a') : 'song.json'}<span class="muted">${t(hasAudio ? 'f_sound' : 'f_desc')}</span></li>
+              <li>${I.image}memory/memory.png<span class="muted">${t('f_memory')}</span></li>
+              ${day.myVoice ? `<li>${I.voice}voice/my-voice.${day.myVoice.type.includes('mp4') ? 'm4a' : 'webm'}<span class="muted">${t('f_voice')}</span></li>` : ''}
             </ul>
           </section>
 
           <div>
-            <button class="btn btn--sm btn--invisible btn--danger" id="del" type="button" aria-expanded="false" aria-controls="del-confirm">${I.trash}<span>Удалить день</span></button>
+            <button class="btn btn--sm btn--invisible btn--danger" id="del" type="button" aria-expanded="false" aria-controls="del-confirm">${I.trash}<span>${t('delete_day')}</span></button>
             <div class="confirm" id="del-confirm" role="alertdialog" aria-labelledby="del-q" hidden>
-              <p id="del-q">Удалить «${esc(day.title)}»? Папку дня нельзя будет восстановить.</p>
+              <p id="del-q">${esc(t('delete_day_q', { t: day.title }))}</p>
               <div class="confirm__actions">
-                <button class="btn btn--sm btn--danger-solid" id="del-yes" type="button"><span class="spinner" aria-hidden="true"></span><span>Удалить</span></button>
-                <button class="btn btn--sm" id="del-no" type="button">Отмена</button>
+                <button class="btn btn--sm btn--danger-solid" id="del-yes" type="button"><span class="spinner" aria-hidden="true"></span><span>${t('delete')}</span></button>
+                <button class="btn btn--sm" id="del-no" type="button">${t('cancel')}</button>
               </div>
             </div>
           </div>
@@ -783,13 +804,13 @@ async function renderDay(id) {
     raf = requestAnimationFrame(frame);
     if (ts - last < 1000 / 30) return;
     last = ts;
-    const t = now();
-    r.draw(t);
+    const now_ = now();
+    r.draw(now_);
     const total = audio && Number.isFinite(audio.duration) ? audio.duration : len;
-    $('#time').textContent = `${fmtT(t % total)} / ${fmtT(total)}`;
+    $('#time').textContent = `${fmtT(now_ % total)} / ${fmtT(total)}`;
     const bar = $('#bar i'); if (bar && audio?.duration) bar.style.width = `${(audio.currentTime / audio.duration) * 100}%`;
   };
-  const setBtn = on => { const b = $('#play'); b.innerHTML = on ? I.pause : I.play; b.setAttribute('aria-label', on ? 'Пауза' : 'Воспроизвести'); };
+  const setBtn = on => { const b = $('#play'); b.innerHTML = on ? I.pause : I.play; b.setAttribute('aria-label', on ? t('pause') : t('play')); };
   const tryAudio = async () => {
     if (!audio) return true;
     audio.currentTime = offset % (audio.duration || 30);
@@ -821,7 +842,7 @@ async function renderDay(id) {
   $('#mute')?.addEventListener('click', () => {
     audio.muted = !audio.muted;
     const b = $('#mute');
-    b.setAttribute('aria-label', audio.muted ? 'Включить звук' : 'Выключить звук');
+    b.setAttribute('aria-label', audio.muted ? t('unmute') : t('mute'));
     b.style.opacity = audio.muted ? '.5' : '';
   });
   $('#bar')?.addEventListener('click', e => {
@@ -843,18 +864,18 @@ async function renderDay(id) {
   function drawMine() {
     const row = $('#mine-row'); if (!row) return;
     if (micRec) {
-      row.innerHTML = `<button class="btn btn--danger-solid" id="rec-stop" type="button">${svg('<rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor"/>')}<span>Готово <span id="rec-t">0:00</span></span></button><span class="rec-dot" aria-hidden="true"></span><span class="field__hint">Идёт запись</span>`;
+      row.innerHTML = `<button class="btn btn--danger-solid" id="rec-stop" type="button">${svg('<rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor"/>')}<span>${t('rec_done')} <span id="rec-t">0:00</span></span></button><span class="rec-dot" aria-hidden="true"></span><span class="field__hint">Идёт запись</span>`;
       return;
     }
     if (day.myVoice) {
-      row.innerHTML = `<button class="btn btn--primary" id="mine-play" type="button">${vplaying ? I.pause : I.play}<span>${vplaying ? 'Остановить' : 'Слушать'}</span></button>
-        <button class="btn" id="rec-start" type="button">${dot}<span>Перезаписать</span></button>
-        <button class="btn btn--invisible btn--danger btn--icon" id="mine-del" type="button" aria-label="Удалить мою запись">${I.trash}</button>`;
+      row.innerHTML = `<button class="btn btn--primary" id="mine-play" type="button">${vplaying ? I.pause : I.play}<span>${vplaying ? t('stop') : t('listen')}</span></button>
+        <button class="btn" id="rec-start" type="button">${dot}<span>${t('rerecord')}</span></button>
+        <button class="btn btn--invisible btn--danger btn--icon" id="mine-del" type="button" aria-label="${t('delete_my_rec')}">${I.trash}</button>`;
       return;
     }
     row.innerHTML = canRecord()
-      ? `<button class="btn btn--primary" id="rec-start" type="button">${dot}<span>Записать голос</span></button>`
-      : `<span class="field__hint">Этот браузер не умеет записывать звук</span>`;
+      ? `<button class="btn btn--primary" id="rec-start" type="button">${dot}<span>${t('record_voice')}</span></button>`
+      : `<span class="field__hint">${t('no_rec')}</span>`;
   }
   $('#mine-row').addEventListener('click', async e => {
     if (e.target.closest('#rec-start')) {
@@ -862,18 +883,18 @@ async function renderDay(id) {
       try {
         micRec = await startRecording();
         duck(true); drawMine();
-        recTimer = setInterval(() => { const t = $('#rec-t'); if (t) t.textContent = fmtT(micRec.elapsed()); if (micRec.elapsed() > 180) $('#rec-stop')?.click(); }, 250);
-      } catch (err) { console.error(err); micRec = null; toast('Нет доступа к микрофону'); drawMine(); }
+        recTimer = setInterval(() => { const tEl = $('#rec-t'); if (tEl) tEl.textContent = fmtT(micRec.elapsed()); if (micRec.elapsed() > 180) $('#rec-stop')?.click(); }, 250);
+      } catch (err) { console.error(err); micRec = null; toast(t('no_mic')); drawMine(); }
     } else if (e.target.closest('#rec-stop')) {
       clearInterval(recTimer);
       const blob = await micRec.stop(); micRec = null; duck(false);
-      if (blob.size > 1000) { await save({ myVoice: blob }); toast('Голос сохранён в папку дня'); }
+      if (blob.size > 1000) { await save({ myVoice: blob }); toast(t('voice_saved')); }
       drawMine();
     } else if (e.target.closest('#mine-play')) {
       if (vplaying) { stopVoicePlayback(); return; }
       vplayer.src = objURL(day.myVoice); vplaying = true; duck(true);
       if (!playing) setPlaying(true);
-      vplayer.play().catch(() => { stopVoicePlayback(); toast('Не удалось включить запись'); });
+      vplayer.play().catch(() => { stopVoicePlayback(); toast(t('rec_play_fail')); });
       drawMine();
     } else if (e.target.closest('#mine-del')) {
       stopVoicePlayback(); await save({ myVoice: null }); drawMine();
@@ -887,8 +908,8 @@ async function renderDay(id) {
     const own = day.ownEmotions || [];
     $('#emotions').innerHTML =
       ai.map(e => `<span class="emotion">${esc(e)}</span>`).join('') +
-      own.map((e, i) => `<span class="emotion emotion--own">${esc(e)}<button type="button" data-rm-emo="${i}" aria-label="Убрать эмоцию ${esc(e)}">${I.x}</button></span>`).join('') +
-      `<form class="emotion-add" id="emo-form"><label class="visually-hidden" for="emo-in">Своя эмоция</label><input id="emo-in" maxlength="24" placeholder="+ своя эмоция" autocomplete="off"></form>`;
+      own.map((e, i) => `<span class="emotion emotion--own">${esc(e)}<button type="button" data-rm-emo="${i}" aria-label="${esc(t('remove_emo', { e }))}">${I.x}</button></span>`).join('') +
+      `<form class="emotion-add" id="emo-form"><label class="visually-hidden" for="emo-in">${t('own_emo')}</label><input id="emo-in" maxlength="24" placeholder="${t('own_emo_ph')}" autocomplete="off"></form>`;
   };
   drawEmotions();
   $('#emotions').addEventListener('submit', async e => {
@@ -909,7 +930,7 @@ async function renderDay(id) {
   const drawDayFolders = async () => {
     const mine = await collectionsOf(day.id);
     $('#day-folders').innerHTML = `${mine.map(c => `<a class="badge badge--link" href="#/folder/${c.id}">${I.folder}${esc(c.name)}</a>`).join('')}
-      <button class="btn btn--sm btn--invisible" type="button" id="to-folder">${svg('<path d="M8 3v10M3 8h10"/>', 1.6)}<span>В папку</span></button>`;
+      <button class="btn btn--sm btn--invisible" type="button" id="to-folder">${svg('<path d="M8 3v10M3 8h10"/>', 1.6)}<span>${t('to_folder')}</span></button>`;
   };
   await drawDayFolders();
   $('#day-folders').addEventListener('click', e => {
@@ -930,7 +951,7 @@ async function renderDay(id) {
   };
   $('#png').addEventListener('click', async e => {
     const b = e.currentTarget; busy(b, true);
-    try { download(await memoryPng(), `${folderName}.png`); toast('Кадр сохранён'); } catch (err) { console.error(err); toast('Не удалось сохранить кадр'); }
+    try { download(await memoryPng(), `${folderName}.png`); toast(t('frame_saved')); } catch (err) { console.error(err); toast(t('frame_fail')); }
     busy(b, false);
   });
   $('#zip').addEventListener('click', async e => {
@@ -947,8 +968,8 @@ async function renderDay(id) {
         { name: f + 'day.json', data: JSON.stringify({ id: day.id, number: day.number, date: day.date, title: day.title, titleRule: day.titleRule, style: { ...s, why: s.why.map(w => ({ src: w.src, text: stripTags(w.text) })) }, analysis: day.analysis }, null, 2) },
       ];
       download(await makeZip(files), `${folderName}.zip`);
-      toast('Папка дня сохранена');
-    } catch (err) { console.error(err); toast('Не удалось собрать архив'); }
+      toast(t('zip_saved'));
+    } catch (err) { console.error(err); toast(t('zip_fail')); }
     busy(b, false);
   });
 
@@ -956,7 +977,7 @@ async function renderDay(id) {
   let recording = null;
   $('#vid').addEventListener('click', async e => {
     const b = e.currentTarget;
-    if (!('MediaRecorder' in window) || !cv.captureStream) { toast('Этот браузер не умеет записывать видео'); return; }
+    if (!('MediaRecorder' in window) || !cv.captureStream) { toast(t('no_video')); return; }
     const mime = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m)) || '';
     const seconds = Math.round(Math.min(30, Math.max(15, audio?.duration || r.duration)));
     busy(b, true);
@@ -979,15 +1000,15 @@ async function renderDay(id) {
     rec.onstop = () => {
       clearInterval(recording?.tick); recording = null;
       const type = rec.mimeType || 'video/webm';
-      if (chunks.length) { download(new Blob(chunks, { type }), `${folderName}.${type.includes('mp4') ? 'mp4' : 'webm'}`); toast('Видео сохранено'); }
-      busy(b, false); label.textContent = 'Видео';
+      if (chunks.length) { download(new Blob(chunks, { type }), `${folderName}.${type.includes('mp4') ? 'mp4' : 'webm'}`); toast(t('video_saved')); }
+      busy(b, false); label.textContent = t('video');
     };
     await setPlaying(false); offset = 0; if (audio) audio.currentTime = 0; await setPlaying(true);
     rec.start(500);
     const t0 = performance.now();
     recording = { rec, tick: setInterval(() => {
       const left = Math.ceil(seconds - (performance.now() - t0) / 1000);
-      label.textContent = `Запись ${Math.max(0, left)} с`;
+      label.textContent = t('recording_s', { n: Math.max(0, left) });
       if (left <= 0 && rec.state === 'recording') rec.stop();
     }, 250) };
   });
@@ -1002,9 +1023,9 @@ async function renderDay(id) {
     try {
       await db.remove(day.id);
       await forgetDay(day.id);
-      toast('День удалён');
+      toast(t('day_deleted'));
       location.hash = '#/';
-    } catch (err) { console.error(err); toast('Не удалось удалить день'); busy(b, false); }
+    } catch (err) { console.error(err); toast(t('day_del_fail')); busy(b, false); }
   });
 
   cleanup = () => {

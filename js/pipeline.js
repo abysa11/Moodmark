@@ -26,6 +26,14 @@ export function songLabel(song) {
   return '';
 }
 
+export const detectLang = text => (/[әғқңөұүһі]/i.test(text) ? 'kk' : /[а-яё]/i.test(text) ? 'ru' : 'en');
+// without the AI, Kazakh and English entries get a title from their own first words
+function plainTitle(text) {
+  const words = (text.split(/(?<=[.!?…])\s+/)[0] || text).replace(/[«»"“”.!?…,;:]/g, '').split(/\s+/).filter(Boolean).slice(0, 6);
+  const s = words.join(' ');
+  return s ? s[0].toUpperCase() + s.slice(1) : '…';
+}
+
 const WEATHER_RU = { sun: 'солнце', rain: 'дождь', snow: 'снег', fog: 'туман', wind: 'ветер' };
 
 // AI reading leads (70%), the stem dictionary keeps it honest (30%).
@@ -66,6 +74,7 @@ export async function analyzeDay(input, onStep = () => {}) {
   const style = buildStyle({ text: t, photo, music, musicMeta: meta, extras });
   let title, rule;
   if (ai?.title) { title = ai.title; rule = `название предложил ИИ (${ai.model.split('/')[1]?.replace(':free', '') || ai.model}) по правилу тона`; }
+  else if (detectLang(text) !== 'ru') { title = plainTitle(text); rule = 'первые слова записи'; }
   else ({ title, rule } = makeTitle({ ...t, timeOfDay: extras.timeOfDay || t.timeOfDay }, style.regime));
   style.why.push({ src: 'Название', text: `<b>${title}</b>: ${rule}. Тон один для всех папок: 3–7 слов, без глаголов.` });
 
@@ -86,6 +95,8 @@ export async function createDay(input, onStep = () => {}) {
     caption: a.t.caption,
     photos: a.photos.map(p => p.blob),
     posterV: 3,
+    lang: detectLang(input.text),
+    i18n: input.i18n || null,
     ownEmotions: input.ownEmotions || [],
     song: input.song,
     songLabel: songLabel(input.song),

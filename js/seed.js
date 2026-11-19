@@ -6,6 +6,7 @@
 import { db } from './db.js';
 import { createDay } from './pipeline.js';
 import { DEMO_DATA } from './demo-data.js';
+import { DEMO_I18N } from './demo-i18n.js';
 import { fetchPreview } from './music.js';
 
 function rnd(seed) {
@@ -173,7 +174,7 @@ export const DEMO_DAYS = [
 ];
 
 export async function seedIfEmpty(force = false, onProgress = () => {}) {
-  const seeded = await db.getMeta('seeded-v6');
+  const seeded = await db.getMeta('seeded-v7');
   if (seeded && !force) return false;
   let i = 0;
   for (const d of DEMO_DAYS) {
@@ -182,8 +183,8 @@ export async function seedIfEmpty(force = false, onProgress = () => {}) {
     let file = null;
     try { file = await fetchPreview(track); } catch (e) { console.warn('preview', e); }
     const song = { kind: 'track', track, file, fileName: file ? `${track.artist} - ${track.title}.m4a` : '', meta: { artist: track.artist, title: track.title, genre: d.genre, year: track.year } };
-    await createDay({ ...d, id: 'demo-' + d.number, photos: await d.photos(), song, ai, demo: true });
+    await createDay({ ...d, id: 'demo-' + d.number, photos: await d.photos(), song, ai, i18n: DEMO_I18N[d.number], demo: true });
   }
-  await db.setMeta('seeded-v6', true);
+  await db.setMeta('seeded-v7', true);
   return true;
 }

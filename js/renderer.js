@@ -4,24 +4,20 @@
 // photo grading, pace of scene changes. Photos slowly drift and zoom.
 
 import { loadBitmap } from './analyze-photo.js';
+import { t, formatDate } from './i18n.js';
 
 export const W = 1080, H = 1350, M = 64;
 
-const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-export function formatDate(iso, upper = false) {
-  if (!iso) return '';
-  const [y, m, d] = iso.split('-').map(Number);
-  const s = `${d} ${MONTHS[m - 1]} ${y}`;
-  return upper ? s.toUpperCase() : s;
-}
+export { formatDate };
 
 // Mood of a day — user-facing names for the five internal regimes.
+const mood = (key, dot) => ({ get name() { return t('mood_' + key); }, dot });
 export const MOODS = {
-  collage: { name: 'Радость', dot: '#e8a13a' },
-  impression: { name: 'Спокойствие', dot: '#9bb58a' },
-  ma: { name: 'Тишина', dot: '#b9b3a8' },
-  film: { name: 'Грусть', dot: '#6f86a6' },
-  construct: { name: 'Напряжение', dot: '#c8463d' },
+  collage: mood('collage', '#e8a13a'),
+  impression: mood('impression', '#9bb58a'),
+  ma: mood('ma', '#b9b3a8'),
+  film: mood('film', '#6f86a6'),
+  construct: mood('construct', '#c8463d'),
 };
 
 // How each mood paints the atmosphere behind the photo.
@@ -168,9 +164,9 @@ function getGrain() {
 let fontsReady = null;
 export function loadFonts() {
   if (!fontsReady) {
-    const specs = ['800 22px Archivo', '500 20px "Geist Mono"', '400 30px Geist', '400 64px "Instrument Serif"', 'italic 40px "Instrument Serif"'];
+    const specs = ['800 22px Archivo', '500 20px "Geist Mono"', '400 30px Geist', '500 64px "Cormorant Garamond"', 'italic 500 40px "Cormorant Garamond"'];
     fontsReady = Promise.race([
-      Promise.all(specs.map(s => document.fonts.load(s, 'АаBb'))).catch(() => {}),
+      Promise.all(specs.map(s => document.fonts.load(s, 'АаBbӘәҒғҚқҢңӨөҰұҮүҺһІі'))).catch(() => {}),
       new Promise(r => setTimeout(r, 3500)),
     ]);
   }
@@ -385,13 +381,13 @@ export class MemoryRenderer {
     ctx.textAlign = 'center';
 
     // title + caption under the card
-    let size = 62;
-    ctx.font = `400 ${size}px "Instrument Serif"`;
+    let size = 70;
+    ctx.font = `500 ${size}px "Cormorant Garamond"`;
     let lines = wrap(ctx, day.title || '', W - M * 2, 2);
-    if (lines.length > 1) { size = 52; ctx.font = `400 ${size}px "Instrument Serif"`; lines = wrap(ctx, day.title || '', W - M * 2, 2); }
+    if (lines.length > 1) { size = 58; ctx.font = `500 ${size}px "Cormorant Garamond"`; lines = wrap(ctx, day.title || '', W - M * 2, 2); }
     let y = 1000 + 78;
     lines.forEach(l => { ctx.fillText(l, W / 2, y); y += size; });
-    ctx.font = 'italic 34px "Instrument Serif"';
+    ctx.font = 'italic 500 36px "Cormorant Garamond"';
     const cap = (day.caption || '').trim();
     const capLines = wrap(ctx, cap, W - M * 2 - 80, lines.length > 1 ? 1 : 2);
     const reveal = this.posterMode ? 1 : clamp(t / 2.6);
