@@ -405,7 +405,8 @@ export function createBook(root, api) {
   function renderStickers() {
     const look = api.look();
     const layer = root.querySelector('.stk-layer');
-    const sel = layer.querySelector('.stk.is-sel')?.dataset.id;
+    // the selection frame belongs to decorating only
+    const sel = decorating ? layer.querySelector('.stk.is-sel')?.dataset.id : null;
     layer.innerHTML = look.stickers.map(s => {
       const src = stickerSrc(s.src, look.library);
       if (!src) return '';

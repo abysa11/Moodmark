@@ -494,7 +494,7 @@ body.is-decorating .main { display: grid; grid-template-columns: minmax(0, 1fr) 
 .is-decorating .stk { cursor: grab; touch-action: none; }
 .is-decorating .stk.is-drag { cursor: grabbing; }
 .stk:focus-visible { outline: 0; }
-.stk.is-sel::before { content: ''; position: absolute; inset: -6px; border: 1.5px dashed rgba(255, 255, 255, 0.95); border-radius: 6px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2); }
+.is-decorating .stk.is-sel::before { content: ''; position: absolute; inset: -6px; border: 1.5px dashed rgba(255, 255, 255, 0.95); border-radius: 6px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2); }
 .stk-del, .stk-rot {
   position: absolute; display: none; place-items: center;
   width: 28px; height: 28px; border-radius: 50%;
@@ -502,7 +502,7 @@ body.is-decorating .main { display: grid; grid-template-columns: minmax(0, 1fr) 
 }
 .stk-del { top: -18px; right: -18px; }
 .stk-rot { bottom: -18px; right: -18px; cursor: nwse-resize; touch-action: none; }
-.stk.is-sel .stk-del, .stk.is-sel .stk-rot { display: grid; }
+.is-decorating .stk.is-sel .stk-del, .is-decorating .stk.is-sel .stk-rot { display: grid; }
 
 /* ---------- turning a page ---------- */
 .turn {
