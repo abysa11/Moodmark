@@ -394,7 +394,7 @@ function promptFolder(addEntry = null, folder = null) {
 }
 
 // Own mood: a word that describes the day more precisely, plus the base mood
-// whose look (colors, pace, voice) it should borrow.
+// whose look (colors and pace) it should borrow.
 function promptMood() {
   return new Promise(resolve => {
     let base = null, done = false;

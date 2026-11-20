@@ -84,7 +84,8 @@ export function createBook(root, api) {
   // ---------- pages ----------
   function build() {
     const items = api.items().map(e => ({ e }));
-    if (api.showToday() && !items.some(it => it.e.date === today())) items.push({ today: true });
+    // the last place in the album is always an empty frame for a new day
+    if (api.showToday()) items.push({ today: true, done: items.some(it => it.e.date === today()) });
     pages = [{ type: 'title' }, ...collage(items)];
     // A new album has 10 empty pages to flip through. More pages appear only
     // once all of them are filled with photos.
@@ -152,7 +153,7 @@ export function createBook(root, api) {
       return `
         <button class="snap snap-today" data-act="new" style="${pos}">
           <span class="snap-photo">${icon('plus', 24)}</span>
-          <span class="snap-cap"><b>Записать этот день</b><span>Сегодня, ${fmtDate(today())}</span></span>
+          <span class="snap-cap"><b>${s.it.done ? 'Новая запись' : 'Записать этот день'}</b><span>Сегодня, ${fmtDate(today())}</span></span>
         </button>`;
     }
     const e = s.it.e;
@@ -228,9 +229,11 @@ export function createBook(root, api) {
     leaf.style.transition = instant ? 'none' : '';
     // phones: the page swings off to the left (next) or in from the left (previous)
     const deg = two ? (dir > 0 ? -180 * p : 180 * p) : (dir > 0 ? -180 * p : -180 * (1 - p));
-    leaf.style.transform = `rotateY(${deg}deg)`;
+    // perspective lives in the transform itself: Safari keeps the 3D that way
+    leaf.style.transform = `perspective(2200px) rotateY(${deg}deg)`;
     leaf.style.setProperty('--shade', Math.sin(p * Math.PI).toFixed(3));
-    if (!two) leaf.style.opacity = dir > 0 ? (p > 0.75 ? (1 - p) * 4 : 1) : (p < 0.25 ? p * 4 : 1);
+    // fade the faces, not the leaf: opacity on a 3D element flattens it in Safari
+    if (!two) leaf.style.setProperty('--fade', dir > 0 ? (p > 0.75 ? (1 - p) * 4 : 1) : (p < 0.25 ? p * 4 : 1));
   }
 
   function settle(t, commit) {
@@ -278,12 +281,13 @@ export function createBook(root, api) {
   function sync(barOnly) {
     const f = api.filterLabel();
     const filter = f ? `<span class="bar-filter">${esc(f)}<button class="icon-btn ghost sm" data-act="filter" data-type="all" aria-label="Показать все записи">${icon('close', 14)}</button></span>` : '';
+    const add = decorating ? '' : `<button class="btn primary bar-new" data-act="new">${icon('plus', 18)}<span>Новая запись</span></button>`;
     if (!open) {
-      bar.start.innerHTML = filter;
+      bar.start.innerHTML = add + filter;
       bar.mid.innerHTML = decorating ? '' : '<span class="bar-hint">Нажмите на книгу, чтобы открыть</span>';
       bar.end.innerHTML = decorating ? '' : `<button class="btn glass-btn" data-book="decorate">${icon('brush', 18)}<span>Оформить</span></button>`;
     } else {
-      bar.start.innerHTML = filter;
+      bar.start.innerHTML = add + filter;
       bar.mid.innerHTML = `<span class="bar-page" aria-live="polite">${spreadLabel()}</span>`;
       bar.end.innerHTML = `
         <button class="btn glass-btn" data-book="home" ${page === homeView() ? 'disabled' : ''}>${icon('today', 18)}<span>Сегодня</span></button>

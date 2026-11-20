@@ -28,7 +28,6 @@ export async function openViewer(entry, urls, actions) {
     <div class="v-top">
       <button class="glass-btn icon-btn" data-act="close" aria-label="Закрыть">${icon('close')}</button>
       <div class="v-top-right">
-        <button class="glass-btn icon-btn" data-act="voice" aria-label="Прочитать запись вслух" title="Прочитать вслух">${icon('voice')}</button>
         <button class="glass-btn icon-btn" data-act="menu" aria-label="Действия с записью">${icon('more')}</button>
       </div>
     </div>
@@ -147,29 +146,11 @@ export async function openViewer(entry, urls, actions) {
   };
   addEventListener('resize', onResize);
 
-  // --- voice ---
-  const speak = () => {
-    const synth = window.speechSynthesis;
-    if (!synth) return actions.toast('Браузер не поддерживает озвучку');
-    if (synth.speaking) { synth.cancel(); el.querySelector('[data-act="voice"]').classList.remove('is-active'); return; }
-    const u = new SpeechSynthesisUtterance([entry.title, entry.text].filter(Boolean).join('. '));
-    u.lang = /[әғқңөұүһі]/i.test(entry.text || '') ? 'kk-KZ' : 'ru-RU';
-    const voice = synth.getVoices().find(v => v.lang.startsWith(u.lang.slice(0, 2)));
-    if (voice) u.voice = voice;
-    u.rate = mood.voice.rate; u.pitch = mood.voice.pitch;
-    const btn = el.querySelector('[data-act="voice"]');
-    btn.classList.add('is-active');
-    u.onend = u.onerror = () => btn.classList.remove('is-active');
-    if (audio && !audio.paused) { fadeTo(0.25, 600); u.onend = () => { btn.classList.remove('is-active'); fadeTo(0.85, 1200); }; }
-    synth.speak(u);
-  };
-
   // --- close ---
   const close = (instant) => {
     if (!alive) return;
     alive = false;
     clearInterval(cycle);
-    window.speechSynthesis?.cancel();
     removeEventListener('resize', onResize);
     removeEventListener('keydown', onKey);
     current = null;
@@ -203,7 +184,6 @@ export async function openViewer(entry, urls, actions) {
     else if (a === 'next') go(1);
     else if (a === 'prev') go(-1);
     else if (a === 'play') toggle();
-    else if (a === 'voice') speak();
     else if (a === 'read') { el.querySelector('.v-sheet').hidden = false; el.classList.add('is-reading'); }
     else if (a === 'read-close') { el.querySelector('.v-sheet').hidden = true; el.classList.remove('is-reading'); }
     else if (a === 'menu') actions.menu(b, entry, { close });

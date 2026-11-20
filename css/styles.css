@@ -5,6 +5,7 @@
    ========================================================= */
 @property --f { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
 @property --shade { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --fade { syntax: '<number>'; inherits: true; initial-value: 1; }
 
 :root {
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px;
@@ -385,7 +386,6 @@ body.is-decorating .main { display: grid; grid-template-columns: minmax(0, 1fr) 
   position: relative;
   width: calc(var(--pw, 360px) * 2); height: var(--ph, 480px);
   margin-bottom: 16px;
-  perspective: 2600px;
   transform: translateX(calc(var(--pw, 360px) * -0.5));
   transition: transform 900ms var(--ease-io);
 }
@@ -408,7 +408,7 @@ body.is-decorating .main { display: grid; grid-template-columns: minmax(0, 1fr) 
 }
 .is-single .board { left: 0; }
 
-.pages { position: absolute; inset: 0; z-index: 2; perspective: 2600px; }
+.pages { position: absolute; inset: 0; z-index: 2; }
 .page, .face { container-type: size; overflow: hidden; background-color: var(--paper); }
 .page { position: absolute; top: 0; bottom: 0; width: 50%; }
 .page-l { left: 0; border-radius: 3px 0 0 3px; box-shadow: -1px 0 0 #e4e3df, -3px 1px 0 #f6f6f4, -4px 1px 0 #dddcd7; }
@@ -434,11 +434,14 @@ body.is-decorating .main { display: grid; grid-template-columns: minmax(0, 1fr) 
   top: calc(var(--hang) * -1); bottom: calc(var(--hang) * -1); left: 50%; right: calc(var(--hang) * -1);
   transform-origin: left center;
   transform-style: preserve-3d;
+  transform: perspective(2600px) rotateY(0deg);
   transition: transform 1000ms var(--ease-io), z-index 0s;
 }
 .is-single .leaf { left: 0; }
-.book.is-open .leaf { transform: rotateY(-180deg); z-index: 1; transition: transform 1000ms var(--ease-io), z-index 0s 950ms; }
-.is-single.is-open .leaf { opacity: 0; transition: transform 1000ms var(--ease-io), opacity 300ms var(--ease) 700ms, z-index 0s 950ms; }
+.book.is-open .leaf { transform: perspective(2600px) rotateY(-180deg); z-index: 1; transition: transform 1000ms var(--ease-io), z-index 0s 950ms; }
+/* phones: the cover swings off to the left and fades (its faces fade, not the 3D leaf) */
+.is-single .leaf > * { transition: opacity 0s; }
+.is-single.is-open .leaf > * { opacity: 0; transition: opacity 300ms var(--ease) 700ms; }
 .leaf-front, .leaf-back { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .leaf-front { border-radius: 3px 10px 10px 3px; box-shadow: var(--book-shadow); }
 .leaf-back { transform: rotateY(180deg); border-radius: 10px 3px 3px 10px; box-shadow: var(--book-shadow); }
@@ -505,7 +508,7 @@ body.is-decorating .main { display: grid; grid-template-columns: minmax(0, 1fr) 
 .turn {
   position: absolute; top: 0; bottom: 0; width: 50%; z-index: 6;
   transform-style: preserve-3d;
-  transition: transform 650ms var(--ease-io), opacity 300ms var(--ease), --shade 650ms var(--ease-io);
+  transition: transform 650ms var(--ease-io), --shade 650ms var(--ease-io), --fade 650ms var(--ease-io);
   pointer-events: none;
 }
 .turn.fwd { left: 50%; transform-origin: left center; }
@@ -513,6 +516,7 @@ body.is-decorating .main { display: grid; grid-template-columns: minmax(0, 1fr) 
 .turn.single { left: 0; width: 100%; transform-origin: left center; }
 .face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .face-back { transform: rotateY(180deg); }
+.turn.single .face { opacity: var(--fade, 1); }
 /* the turning page darkens as it stands up, like paper catching less light */
 .face::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: rgba(17, 17, 19, 0.14); opacity: var(--shade, 0); }
 /* the pages can be dragged: a horizontal drag turns them, vertical still scrolls */
@@ -567,6 +571,7 @@ body.is-decorating .main { display: grid; grid-template-columns: minmax(0, 1fr) 
 }
 .snap-more { position: absolute; top: 2.6cqw; right: 2.6cqw; background: rgba(255, 255, 255, 0.9); opacity: 0; transition: opacity 200ms var(--ease); }
 .snap:hover .snap-more, .snap-more:focus-visible { opacity: 1; }
+.snap-more.icon-btn.ghost:hover { background: #fff; color: var(--ink); box-shadow: 0 2px 6px rgba(17, 17, 19, 0.2); }
 /* on touch screens the same actions are in the memory view's menu */
 @media (hover: none) { .snap-more { display: none; } }
 .snap-today .snap-photo {
@@ -1080,6 +1085,8 @@ body.is-intro .main { opacity: 0; transform: translateY(24px); }
   .album-bar .btn.glass-btn span { display: none; }
   .bar-page { min-width: 0; font-size: 13px; white-space: nowrap; }
   .bar-pre { display: none; }
+  .album-bar .bar-new { width: 36px; height: 36px; padding: 0; justify-content: center; }
+  .album-bar .bar-new span { display: none; }
   .album-bar { grid-template-columns: auto 1fr auto; }
   .album-bar .icon-btn, .album-bar .btn.glass-btn { flex: none; width: 36px; height: 36px; }
   .bar-mid { justify-content: center; gap: var(--s1); }
