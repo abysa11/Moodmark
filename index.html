@@ -2,17 +2,37 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Moodmark</title>
-  <meta name="description" content="Moodmark">
-  <link rel="icon" href="data:,">
-  <style>
-    html, body { height: 100%; margin: 0; }
-    body { display: grid; place-items: center; background: #fff; color: #111;
-           font: 600 32px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Moodmark — дневник, который помнит, как ощущался день</title>
+  <meta name="description" content="Moodmark превращает день — текст, фото и песню — в воспоминание, которое можно снова прожить: фото раскрывается во весь экран, звучит песня того дня.">
+  <meta name="theme-color" content="#c3c5c9">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Moodmark — дневник, который помнит, как ощущался день">
+  <meta property="og:description" content="Текст, фото и песня дня превращаются в воспоминание, к которому хочется вернуться.">
+  <meta property="og:image" content="assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Unbounded:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="module" src="js/app.js"></script>
 </head>
-<body>
-  <h1 style="font: inherit; margin: 0;">Moodmark</h1>
+<body class="is-intro">
+  <div id="intro" aria-hidden="true">
+    <div class="sky">
+      <div class="cloud-layer far"><i></i><i></i><i></i><i></i></div>
+      <div class="cloud-layer mid"><i></i><i></i><i></i></div>
+      <div class="cloud-bank"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="cloud-layer near"><i></i><i></i><i></i></div>
+    </div>
+    <div class="intro-logo"><span class="logo"></span></div>
+    <p class="intro-name">Moodmark</p>
+    <p class="intro-skip">Нажмите, чтобы пропустить</p>
+  </div>
+  <div class="backdrop" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div id="app"></div>
+  <noscript>Moodmark работает в браузере с включённым JavaScript.</noscript>
 </body>
 </html>
