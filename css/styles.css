@@ -973,7 +973,7 @@ body.has-viewer .side, body.has-viewer .main { visibility: hidden; transition: v
 .sky i {
   position: absolute; display: block;
   background: var(--cloud-a) center / 100% 100% no-repeat;
-  filter: blur(12px);
+  filter: blur(5px);
 }
 .sky i:nth-child(even) { background-image: var(--cloud-b); }
 .cloud-layer.far i { opacity: 0.8; animation: float 9s ease-in-out infinite alternate; }
@@ -993,7 +993,7 @@ body.has-viewer .side, body.has-viewer .main { visibility: hidden; transition: v
 .cloud-bank i:nth-child(4) { width: 46vw; height: 26vh; left: 27vw; top: 66vh; }
 .cloud-bank i:nth-child(5) { width: 70vw; height: 30vh; left: 15vw; top: 76vh; }
 
-.cloud-layer.near i { filter: blur(20px); }
+.cloud-layer.near i { filter: blur(10px); }
 .cloud-layer.near i:nth-child(1) { width: 60vw; height: 30vh; left: -20vw; top: 110vh; }
 .cloud-layer.near i:nth-child(2) { width: 70vw; height: 34vh; left: 40vw; top: 120vh; }
 .cloud-layer.near i:nth-child(3) { width: 90vw; height: 40vh; left: 5vw; top: 135vh; }
@@ -1125,7 +1125,7 @@ body.is-intro .main { opacity: 0; transform: translateY(24px); }
   .v-track { left: var(--s4); right: var(--s4); bottom: var(--s4); grid-template-columns: 40px 1fr auto; }
   .v-nav { display: none; }
   .v-sheet { top: 80px; right: var(--s4); left: var(--s4); width: auto; bottom: 96px; }
-  .cloud-bank i { filter: blur(9px); }
+  .cloud-bank i { filter: blur(4px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
