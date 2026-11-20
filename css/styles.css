@@ -965,12 +965,17 @@ body.has-viewer .side, body.has-viewer .main { visibility: hidden; transition: v
 
 .sky { position: absolute; inset: 0; }
 .cloud-layer, .cloud-bank { position: absolute; inset: 0; transition: transform 2200ms cubic-bezier(0.55, 0, 0.2, 1), opacity 1400ms var(--ease) 600ms; }
+.sky {
+  /* puffy cartoon clouds: a white body over a soft gray underside, blurred */
+  --cloud-a: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 210 124'%3E%3Cg fill='%23d6d9df' transform='translate%284 8%29'%3E%3Ccircle cx='40' cy='68' r='24'/%3E%3Ccircle cx='70' cy='46' r='28'/%3E%3Ccircle cx='108' cy='36' r='34'/%3E%3Ccircle cx='146' cy='48' r='28'/%3E%3Ccircle cx='174' cy='68' r='22'/%3E%3Ccircle cx='30' cy='84' r='18'/%3E%3Ccircle cx='60' cy='88' r='22'/%3E%3Ccircle cx='100' cy='92' r='24'/%3E%3Ccircle cx='140' cy='90' r='22'/%3E%3Ccircle cx='176' cy='86' r='18'/%3E%3Ccircle cx='108' cy='66' r='40'/%3E%3C/g%3E%3Cg fill='%23ffffff'%3E%3Ccircle cx='40' cy='68' r='24'/%3E%3Ccircle cx='70' cy='46' r='28'/%3E%3Ccircle cx='108' cy='36' r='34'/%3E%3Ccircle cx='146' cy='48' r='28'/%3E%3Ccircle cx='174' cy='68' r='22'/%3E%3Ccircle cx='30' cy='84' r='18'/%3E%3Ccircle cx='60' cy='88' r='22'/%3E%3Ccircle cx='100' cy='92' r='24'/%3E%3Ccircle cx='140' cy='90' r='22'/%3E%3Ccircle cx='176' cy='86' r='18'/%3E%3Ccircle cx='108' cy='66' r='40'/%3E%3C/g%3E%3C/svg%3E");
+  --cloud-b: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 210 124'%3E%3Cg fill='%23d6d9df' transform='translate%284 8%29'%3E%3Ccircle cx='46' cy='64' r='22'/%3E%3Ccircle cx='78' cy='44' r='30'/%3E%3Ccircle cx='118' cy='40' r='26'/%3E%3Ccircle cx='150' cy='56' r='26'/%3E%3Ccircle cx='170' cy='78' r='20'/%3E%3Ccircle cx='36' cy='84' r='18'/%3E%3Ccircle cx='66' cy='90' r='20'/%3E%3Ccircle cx='104' cy='92' r='22'/%3E%3Ccircle cx='140' cy='90' r='20'/%3E%3Ccircle cx='110' cy='68' r='36'/%3E%3C/g%3E%3Cg fill='%23ffffff'%3E%3Ccircle cx='46' cy='64' r='22'/%3E%3Ccircle cx='78' cy='44' r='30'/%3E%3Ccircle cx='118' cy='40' r='26'/%3E%3Ccircle cx='150' cy='56' r='26'/%3E%3Ccircle cx='170' cy='78' r='20'/%3E%3Ccircle cx='36' cy='84' r='18'/%3E%3Ccircle cx='66' cy='90' r='20'/%3E%3Ccircle cx='104' cy='92' r='22'/%3E%3Ccircle cx='140' cy='90' r='20'/%3E%3Ccircle cx='110' cy='68' r='36'/%3E%3C/g%3E%3C/svg%3E");
+}
 .sky i {
   position: absolute; display: block;
-  border-radius: 50%;
-  background: radial-gradient(closest-side at 50% 42%, #ffffff 0%, #ffffff 58%, rgba(255, 255, 255, 0.7) 78%, rgba(255, 255, 255, 0) 100%);
-  filter: blur(4px);
+  background: var(--cloud-a) center / 100% 100% no-repeat;
+  filter: blur(5px);
 }
+.sky i:nth-child(even) { background-image: var(--cloud-b); }
 .cloud-layer.far i { opacity: 0.8; animation: float 9s ease-in-out infinite alternate; }
 .cloud-layer.far i:nth-child(1) { width: 34vw; height: 12vw; left: -6vw; top: 10vh; }
 .cloud-layer.far i:nth-child(2) { width: 26vw; height: 10vw; left: 62vw; top: 6vh; animation-delay: -3s; }
