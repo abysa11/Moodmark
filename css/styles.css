@@ -415,7 +415,7 @@ body.is-decorating .main { display: grid; grid-template-columns: minmax(0, 1fr) 
 .page-r { right: 0; border-radius: 0 3px 3px 0; box-shadow: 1px 0 0 #e4e3df, 3px 1px 0 #f6f6f4, 4px 1px 0 #dddcd7; }
 .paper-l { background-image: linear-gradient(to left, rgba(17, 17, 19, 0.1), rgba(17, 17, 19, 0) 9%); }
 .paper-r { background-image: linear-gradient(to right, rgba(17, 17, 19, 0.1), rgba(17, 17, 19, 0) 9%); }
-.book:not(.is-open) .page-l { opacity: 0; }
+.book:not(.is-open) .page-l { opacity: 0; transition: opacity 300ms var(--ease) 350ms; }
 .book.is-open .page-l { opacity: 1; transition: opacity 240ms var(--ease) 860ms; }
 .is-single .page-l { display: none; }
 .is-single .page-r { left: 0; width: 100%; border-radius: 3px; }
@@ -1484,3 +1484,9 @@ body { background-color: #1f78c8; color: var(--ink); }
     linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(150, 210, 255, 0.26) 55%, rgba(60, 150, 230, 0.3));
 }
 .album-bar .glass-btn:disabled { opacity: 0.5; }
+
+/* the back of the glass cover: the same title and stickers, seen through the
+   glass from behind (mirrored, a little softer) */
+.cover-mirror { position: absolute; inset: 0; transform: scaleX(-1); opacity: 0.85; filter: blur(0.6px); pointer-events: none; color: #fff; border-radius: inherit; overflow: hidden; }
+.cover-mirror .stk-layer { overflow: hidden; }
+.cover-mirror .logo-bubble { width: 26%; }

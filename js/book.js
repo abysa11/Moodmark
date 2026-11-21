@@ -70,7 +70,7 @@ export function createBook(root, api) {
             </div>
             <div class="stk-layer"></div>
           </div>
-          <div class="leaf-back" aria-hidden="true"></div>
+          <div class="leaf-back" aria-hidden="true"><div class="cover-mirror"></div></div>
         </div>
       </div>
     </div>
@@ -179,7 +179,7 @@ export function createBook(root, api) {
     return `
       <article class="snap" style="${pos};${pr.style}">
         <button class="snap-open" data-act="open" data-id="${e.id}" aria-label="Открыть «${esc(e.title)}»">
-          <span class="snap-photo frame-${pr.frame}"><img src="${url}" alt="" loading="lazy" decoding="async" draggable="false">
+          <span class="snap-photo frame-${pr.frame}"><img src="${url}" alt="" decoding="sync" draggable="false">
             ${e.photos.length > 1 ? `<span class="snap-count">${icon('image', 12)}${e.photos.length}</span>` : ''}</span>
           <span class="snap-cap"><b>${esc(e.title)}</b><span>${esc(moodById(e.mood).name)} · ${fmtDate(e.date)}</span></span>
         </button>
@@ -439,15 +439,15 @@ export function createBook(root, api) {
   }
 
   // Stickers: on the cover (no page) or on a page of the album (page number).
-  function stickerHTML(list, sel) {
+  function stickerHTML(list, sel, plain = false) {
     const look = api.look();
     return list.map(s => {
       const src = stickerSrc(s.src, look.library);
       if (!src) return '';
       return `<div class="stk${s.id === sel ? ' is-sel' : ''}" data-id="${s.id}" style="left:${s.x * 100}%;top:${s.y * 100}%;width:${s.size * 100}%;--r:${s.rot}deg"
-        ${decorating ? 'tabindex="0" role="button" aria-label="Наклейка: стрелки двигают, плюс и минус меняют размер, Delete удаляет"' : ''}>
+        ${decorating && !plain ? 'tabindex="0" role="button" aria-label="Наклейка: стрелки двигают, плюс и минус меняют размер, Delete удаляет"' : ''}>
         <img src="${src}" alt="" draggable="false">
-        ${decorating ? `<button class="stk-del" data-stk="del" aria-label="Удалить наклейку">${icon('close', 12)}</button><span class="stk-rot" data-stk="rot" aria-hidden="true">${icon('rotate', 12)}</span>` : ''}
+        ${decorating && !plain ? `<button class="stk-del" data-stk="del" aria-label="Удалить наклейку">${icon('close', 12)}</button><span class="stk-rot" data-stk="rot" aria-hidden="true">${icon('rotate', 12)}</span>` : ''}
       </div>`;
     }).join('');
   }
@@ -457,7 +457,12 @@ export function createBook(root, api) {
   function renderStickers() {
     // the selection frame belongs to decorating only
     const sel = decorating ? root.querySelector('.stk.is-sel')?.dataset.id : null;
-    root.querySelector('.leaf-front .stk-layer').innerHTML = stickerHTML(api.look().stickers.filter(s => s.page == null), sel);
+    const cover = api.look().stickers.filter(s => s.page == null);
+    root.querySelector('.leaf-front .stk-layer').innerHTML = stickerHTML(cover, sel);
+    // the cover is glass: from its other side the title and stickers show
+    // through, mirrored
+    root.querySelector('.cover-mirror').innerHTML = root.querySelector('.leaf-front .cover-art').outerHTML
+      + `<div class="stk-layer">${stickerHTML(cover, null, true)}</div>`;
     root.querySelectorAll('.page .stk-layer[data-page]').forEach(l => { l.innerHTML = stickerHTML(pageStickers(+l.dataset.page), sel); });
   }
 
