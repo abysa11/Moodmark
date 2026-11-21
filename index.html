@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Moodmark — дневник, который помнит, как ощущался день</title>
   <meta name="description" content="Moodmark превращает день — текст, фото и песню — в воспоминание, которое можно снова прожить: фото раскрывается во весь экран, звучит песня того дня.">
-  <meta name="theme-color" content="#c3c5c9">
+  <meta name="theme-color" content="#3d9be3">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Moodmark — дневник, который помнит, как ощущался день">
   <meta property="og:description" content="Текст, фото и песня дня превращаются в воспоминание, к которому хочется вернуться.">
@@ -21,17 +21,20 @@
 </head>
 <body class="is-intro">
   <div id="intro" aria-hidden="true">
-    <div class="sky">
-      <div class="cloud-layer far"><i></i><i></i><i></i><i></i></div>
-      <div class="cloud-layer mid"><i></i><i></i><i></i></div>
-      <div class="cloud-bank"><i></i><i></i><i></i><i></i><i></i></div>
-      <div class="cloud-layer near"><i></i><i></i><i></i></div>
+    <div class="sea">
+      <div class="sea-sky"><span class="sea-sun"></span></div>
+      <div class="sea-water">
+        <svg class="sea-wave" viewBox="0 0 1200 40" preserveAspectRatio="none"><path d="M0 20 Q 75 6 150 20 T 300 20 T 450 20 T 600 20 T 750 20 T 900 20 T 1050 20 T 1200 20 V 40 H 0 Z"/></svg>
+        <div class="sea-rays"></div>
+      </div>
+      <div class="sea-bubbles"></div>
     </div>
-    <div class="intro-logo"><span class="logo"></span></div>
+    <div class="intro-logo"><span class="logo-bubble"><span class="logo"></span></span></div>
+    <div class="intro-splash"><i></i><i></i><i></i></div>
     <p class="intro-name">Moodmark</p>
     <p class="intro-skip">Нажмите, чтобы пропустить</p>
   </div>
-  <div class="backdrop" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div class="backdrop" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
   <div id="app"></div>
   <noscript>Moodmark работает в браузере с включённым JavaScript.</noscript>
 </body>

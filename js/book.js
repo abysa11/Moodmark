@@ -64,7 +64,7 @@ export function createBook(root, api) {
             <button class="cover-hit" data-book="open" aria-label="Открыть альбом"></button>
             <div class="cover-art" aria-hidden="true">
               <span class="cover-frame"></span>
-              <span class="logo"></span>
+              <span class="logo-bubble"><span class="logo"></span></span>
               <span class="cover-title">Moodmark</span>
               <span class="cover-sub"></span>
             </div>
@@ -155,7 +155,8 @@ export function createBook(root, api) {
       : ({ joy: 'tape', energy: 'tape', nostalgia: 'corners', calm: 'corners', tender: 'polaroid', sad: 'plain', anxious: 'plain', tired: 'plain' })[base] || 'corners';
     const mat = e.palette?.[0] && frame !== 'polaroid' && frame !== 'tape' ? `color-mix(in srgb, ${e.palette[0]} 26%, #fff)` : '#fff';
     const pace = e.pace ?? (moodById(e.mood).grade.speed - 0.9);
-    const rot = (0.5 + Math.max(0, pace) * 2.6) * tilt;
+    // every print sits a little crooked, like pasted by hand; a busier day more so
+    const rot = Math.sign(tilt || 1) * (1.4 + Math.abs(tilt) * 1.4 + Math.max(0, pace) * 1.6);
     return { frame, style: `--mat:${mat};--rot:${rot.toFixed(2)}deg` };
   }
 
@@ -188,7 +189,7 @@ export function createBook(root, api) {
     const range = n ? [...new Set([items[0].date, items.at(-1).date].map(monthLabel))].join(' — ') : 'Первые страницы ещё впереди';
     return `
       <div class="pg pg-title">
-        <span class="logo" aria-hidden="true"></span>
+        <span class="logo-bubble" aria-hidden="true"><span class="logo"></span></span>
         <h2 class="pg-title-name">Moodmark</h2>
         <p class="pg-title-sub">Альбом дней</p>
         <p class="pg-title-meta">${esc(api.filterLabel() || range)}</p>
@@ -210,8 +211,12 @@ export function createBook(root, api) {
     return `<div class="pg"><header class="pg-head">${months.join(' — ')}</header><div class="pg-items">${p.items.map(snap).join('')}</div>${num}</div>`;
   }
 
+  // the first page with photos, seen through the glass cover of the closed book
+  const firstPage = () => Math.max(1, pages.findIndex(p => p.type === 'items' && p.items.some(s => s.it.e)));
+
   function renderSpread() {
-    if (two) { L.innerHTML = pageHTML(page); R.innerHTML = pageHTML(page + 1); }
+    if (!open) { L.innerHTML = ''; R.innerHTML = pageHTML(firstPage()); }
+    else if (two) { L.innerHTML = pageHTML(page); R.innerHTML = pageHTML(page + 1); }
     else { L.innerHTML = ''; R.innerHTML = pageHTML(page); }
     const vis = new Set(two ? [page, page + 1] : [page]);
     L.toggleAttribute('inert', !open); R.toggleAttribute('inert', !open);
@@ -282,6 +287,8 @@ export function createBook(root, api) {
     if (v) { page = at != null ? viewOf(at) : homeView(); renderSpread(); }
     book.classList.toggle('is-open', v);
     L.toggleAttribute('inert', !v); R.toggleAttribute('inert', !v);
+    // once the cover has come down, the glass shows the first page again
+    if (!v) setTimeout(() => { if (!open) renderSpread(); }, reduce() ? 0 : 1000);
     busy = true;
     setTimeout(() => { busy = false; }, reduce() ? 0 : 1000);
     sync();

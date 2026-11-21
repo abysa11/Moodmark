@@ -111,7 +111,7 @@ function renderShell() {
     <aside class="side glass-panel" aria-label="Навигация по дневнику">
       <div class="brand">
         <button class="brand-home" data-act="home" aria-label="Moodmark — все записи">
-          <span class="logo" aria-hidden="true"></span>
+          <span class="logo-bubble" aria-hidden="true"><span class="logo"></span></span>
           <span class="wordmark">Moodmark</span>
         </button>
       </div>

@@ -8,14 +8,14 @@ import { PRESETS, stickerSrc, makeSticker } from './stickers.js';
 import { uid } from './db.js';
 
 export const COVER_COLORS = [
-  ['#6b1d24', 'Бордо'], ['#8e2a2a', 'Вишня'], ['#a4502f', 'Терракота'], ['#b0832a', 'Горчица'],
+  ['#2a9be6', 'Аква'], ['#6b1d24', 'Бордо'], ['#8e2a2a', 'Вишня'], ['#a4502f', 'Терракота'], ['#b0832a', 'Горчица'],
   ['#5d6232', 'Оливка'], ['#1f4a3c', 'Изумруд'], ['#1f2d4a', 'Тёмно-синий'], ['#7c9cbf', 'Небо'],
   ['#d8b4b0', 'Пудра'], ['#e8e1d3', 'Сливки'], ['#2c2d31', 'Графит'], ['#151517', 'Чёрный'],
 ];
 
 export const DEFAULT_LOOK = {
   id: 'book',
-  color: '#6b1d24',
+  color: '#2a9be6',
   stickers: [],
   library: [],
 };
@@ -31,7 +31,7 @@ export function createDecor(host, { look, save, book, toast, confirm }) {
     if (tab === 'cover') {
       const custom = !COVER_COLORS.some(([c]) => c === L.color);
       return `
-        <p class="hint">Цвет переплёта. Сначала альбом бордовый, как обычная книга.</p>
+        <p class="hint">Оттенок стеклянной обложки.</p>
         <div class="swatches">${swatches(COVER_COLORS, L.color, 'color')}
           <label class="swatch swatch-any ${custom ? 'is-active' : ''}" style="--c:${custom ? L.color : '#ffffff'}" title="Любой цвет">
             ${icon('palette', 18)}<input type="color" value="${L.color}" aria-label="Любой цвет обложки"></label>
