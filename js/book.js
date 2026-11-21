@@ -70,7 +70,7 @@ export function createBook(root, api) {
             </div>
             <div class="stk-layer"></div>
           </div>
-          <div class="leaf-back" aria-hidden="true"><div class="cover-mirror"></div></div>
+          <div class="leaf-back" aria-hidden="true"><div class="cover-mirror"></div><div class="leaf-page paper-l"></div></div>
         </div>
       </div>
     </div>
@@ -290,11 +290,23 @@ export function createBook(root, api) {
     settle(begin(to), true);
   }
 
+  // What the back of the cover carries while it turns. Like a real book, the
+  // left pages close and open together with the cover; only where the left
+  // side is the cover's own inside does the glass show the title from behind.
+  function dressBack(i) {
+    const back = root.querySelector('.leaf-back');
+    const p = two ? pages[i] : null;
+    const withPage = Boolean(p && p.type !== 'inside');
+    back.classList.toggle('with-page', withPage);
+    back.querySelector('.leaf-page').innerHTML = withPage ? pageHTML(i) : '';
+  }
+
   function setOpen(v, at) {
     if (busy && v === open) return;
     if (v === open) { if (v && at != null) { page = viewOf(at); renderSpread(); sync(); } return; }
     open = v;
     if (v) { page = at != null ? viewOf(at) : homeView(); renderSpread(); }
+    dressBack(page);
     book.classList.toggle('is-open', v);
     L.toggleAttribute('inert', !v); R.toggleAttribute('inert', !v);
     // once the cover has come down, the glass shows the first page again
