@@ -4,7 +4,6 @@ import { icon } from './icons.js';
 import { searchTracks, findTrack } from './music.js';
 import { readDay, fallbackRead, hasAI } from './ai.js';
 import { shrink, thumbDataURL, thumbBlob, paletteOf, loadImage } from './photo.js';
-import { openAbout } from './about.js';
 import { createBook } from './book.js';
 import { createDecor, DEFAULT_LOOK } from './decor.js';
 import { stickersReady } from './stickers.js';
@@ -228,7 +227,6 @@ function mountBook() {
     showToday: () => state.filter.type === 'all' && !state.query.trim(),
     demo: db.DEMO,
     isEmpty: () => !state.entries.length,
-    onAbout: () => openAbout(),
     urlOf: coverOf,
     look: () => state.look,
     filterLabel,

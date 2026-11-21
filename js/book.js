@@ -300,18 +300,17 @@ export function createBook(root, api) {
     const add = decorating ? '' : `<button class="btn primary bar-new" data-act="new">${icon('plus', 18)}<span>Новая запись</span></button>`
       + (api.demo ? `<a class="bar-demo" href="./" title="Вернуться к своему альбому">Пример альбома<span> · к своему</span></a>`
         : api.isEmpty() ? `<a class="btn glass-btn bar-example" href="?demo">${icon('book', 18)}<span>Открыть пример</span></a>` : '');
-    const about = `<button class="glass-btn icon-btn" data-book="about" aria-label="Как устроен Moodmark" title="Как это устроено">${icon('info')}</button>`;
     if (!open) {
       bar.start.innerHTML = add + filter;
       bar.mid.innerHTML = decorating ? '' : '<span class="bar-hint">Нажмите на книгу, чтобы открыть</span>';
-      bar.end.innerHTML = decorating ? '' : `${about}<button class="btn glass-btn" data-book="decorate">${icon('brush', 18)}<span>Оформить</span></button>`;
+      bar.end.innerHTML = decorating ? '' : `<button class="btn glass-btn" data-book="decorate">${icon('brush', 18)}<span>Оформить</span></button>`;
     } else {
       bar.start.innerHTML = add + filter;
       bar.mid.innerHTML = `<span class="bar-page" aria-live="polite">${spreadLabel()}</span>`;
       bar.end.innerHTML = `
         <button class="btn glass-btn" data-book="home" ${page === homeView() ? 'disabled' : ''}>${icon('today', 18)}<span>Сегодня</span></button>
         <label class="glass-btn icon-btn date-jump" title="Перейти к дате">${icon('calendar')}<input type="date" max="${today()}" aria-label="Перейти к дате"></label>
-        <button class="glass-btn icon-btn" data-book="decorate" aria-label="Оформить альбом" title="Оформить">${icon('brush')}</button>${about}`;
+        <button class="glass-btn icon-btn" data-book="decorate" aria-label="Оформить альбом" title="Оформить">${icon('brush')}</button>`;
     }
     root.classList.toggle('is-open', open);
     if (barOnly) return;
@@ -336,7 +335,6 @@ export function createBook(root, api) {
     else if (a === 'prev') turn(page - step());
     else if (a === 'home') turn(homeView());
     else if (a === 'decorate') api.onDecorate();
-    else if (a === 'about') api.onAbout();
   });
 
   // keyboard and swipes
