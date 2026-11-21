@@ -128,7 +128,7 @@ export function createBook(root, api) {
         }
         if (!spot) break;
         for (let r = spot.y; r < spot.y + spot.h; r++) for (let c = spot.x; c < spot.x + spot.w; c++) grid[r][c] = true;
-        slots.push({ it, ...spot, jx: rnd() - 0.5, jy: rnd() - 0.5, corners: rnd() < 0.5 });
+        slots.push({ it, ...spot, jx: rnd() - 0.5, jy: rnd() - 0.5, tilt: rnd() * 2 - 1 });
         i++;
       }
       out.push({ type: 'items', items: slots });
@@ -147,6 +147,18 @@ export function createBook(root, api) {
   const homeView = () => viewOf(homePage());
   const pageOfEntry = id => pages.findIndex(p => p.type === 'items' && p.items.some(s => s.it.e?.id === id));
 
+  // Each day's print is styled by the day itself: the frame by its mood, the
+  // mat by its photo's colors, the tilt by how eventful the day was.
+  function printOf(e, tilt) {
+    const base = moodById(e.mood).base || e.mood;
+    const frame = e.light === 'neon' ? 'tape'
+      : ({ joy: 'tape', energy: 'tape', nostalgia: 'corners', calm: 'corners', tender: 'polaroid', sad: 'plain', anxious: 'plain', tired: 'plain' })[base] || 'corners';
+    const mat = e.palette?.[0] && frame !== 'polaroid' && frame !== 'tape' ? `color-mix(in srgb, ${e.palette[0]} 26%, #fff)` : '#fff';
+    const pace = e.pace ?? (moodById(e.mood).grade.speed - 0.9);
+    const rot = (0.5 + Math.max(0, pace) * 2.6) * tilt;
+    return { frame, style: `--mat:${mat};--rot:${rot.toFixed(2)}deg` };
+  }
+
   function snap(s) {
     const pos = `left:${(s.x / COLS) * 100}%;top:${(s.y / ROWS) * 100}%;width:${(s.w / COLS) * 100}%;height:${(s.h / ROWS) * 100}%;--h:${s.h};--jx:${s.jx};--jy:${s.jy}`;
     if (s.it.today) {
@@ -158,10 +170,11 @@ export function createBook(root, api) {
     }
     const e = s.it.e;
     const url = api.urlOf(e);
+    const pr = printOf(e, s.tilt ?? 0);
     return `
-      <article class="snap" style="${pos}">
+      <article class="snap" style="${pos};${pr.style}">
         <button class="snap-open" data-act="open" data-id="${e.id}" aria-label="Открыть «${esc(e.title)}»">
-          <span class="snap-photo${s.corners ? ' has-corners' : ''}"><img src="${url}" alt="" loading="lazy" decoding="async" draggable="false">
+          <span class="snap-photo frame-${pr.frame}"><img src="${url}" alt="" loading="lazy" decoding="async" draggable="false">
             ${e.photos.length > 1 ? `<span class="snap-count">${icon('image', 12)}${e.photos.length}</span>` : ''}</span>
           <span class="snap-cap"><b>${esc(e.title)}</b><span>${esc(moodById(e.mood).name)} · ${fmtDate(e.date)}</span></span>
         </button>
@@ -284,18 +297,21 @@ export function createBook(root, api) {
   function sync(barOnly) {
     const f = api.filterLabel();
     const filter = f ? `<span class="bar-filter">${esc(f)}<button class="icon-btn ghost sm" data-act="filter" data-type="all" aria-label="Показать все записи">${icon('close', 14)}</button></span>` : '';
-    const add = decorating ? '' : `<button class="btn primary bar-new" data-act="new">${icon('plus', 18)}<span>Новая запись</span></button>`;
+    const add = decorating ? '' : `<button class="btn primary bar-new" data-act="new">${icon('plus', 18)}<span>Новая запись</span></button>`
+      + (api.demo ? `<a class="bar-demo" href="./" title="Вернуться к своему альбому">Пример альбома<span> · к своему</span></a>`
+        : api.isEmpty() ? `<a class="btn glass-btn bar-example" href="?demo">${icon('book', 18)}<span>Открыть пример</span></a>` : '');
+    const about = `<button class="glass-btn icon-btn" data-book="about" aria-label="Как устроен Moodmark" title="Как это устроено">${icon('info')}</button>`;
     if (!open) {
       bar.start.innerHTML = add + filter;
       bar.mid.innerHTML = decorating ? '' : '<span class="bar-hint">Нажмите на книгу, чтобы открыть</span>';
-      bar.end.innerHTML = decorating ? '' : `<button class="btn glass-btn" data-book="decorate">${icon('brush', 18)}<span>Оформить</span></button>`;
+      bar.end.innerHTML = decorating ? '' : `${about}<button class="btn glass-btn" data-book="decorate">${icon('brush', 18)}<span>Оформить</span></button>`;
     } else {
       bar.start.innerHTML = add + filter;
       bar.mid.innerHTML = `<span class="bar-page" aria-live="polite">${spreadLabel()}</span>`;
       bar.end.innerHTML = `
         <button class="btn glass-btn" data-book="home" ${page === homeView() ? 'disabled' : ''}>${icon('today', 18)}<span>Сегодня</span></button>
         <label class="glass-btn icon-btn date-jump" title="Перейти к дате">${icon('calendar')}<input type="date" max="${today()}" aria-label="Перейти к дате"></label>
-        <button class="glass-btn icon-btn" data-book="decorate" aria-label="Оформить альбом" title="Оформить">${icon('brush')}</button>`;
+        <button class="glass-btn icon-btn" data-book="decorate" aria-label="Оформить альбом" title="Оформить">${icon('brush')}</button>${about}`;
     }
     root.classList.toggle('is-open', open);
     if (barOnly) return;
@@ -320,6 +336,7 @@ export function createBook(root, api) {
     else if (a === 'prev') turn(page - step());
     else if (a === 'home') turn(homeView());
     else if (a === 'decorate') api.onDecorate();
+    else if (a === 'about') api.onAbout();
   });
 
   // keyboard and swipes

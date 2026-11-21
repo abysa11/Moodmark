@@ -169,7 +169,11 @@ const SYSTEM = `Ты помогаешь личному дневнику Moodmark
 "atmosphere": "одно предложение до 120 символов: свет, звук, температура и ощущение этого дня, как будто вспоминаешь его через год",
 "warmth": число от -1 (холодный день) до 1 (тёплый день),
 "music": "если песни нет: поисковый запрос для Apple Music — 'исполнитель название' реальной известной песни, которая подходит по настроению, фото и записи; иначе null",
-"ambience": "звук фона этого дня, только если он прямо назван в записи или явно виден на фото: rain, wind, sea, street или fire; если нет — null. Не выдумывай."}`;
+"ambience": "звук фона этого дня, только если он прямо назван в записи или явно виден на фото: rain, wind, sea, street или fire; если нет — null. Не выдумывай.",
+"time": "время суток по фото и записи: morning, day, evening или night",
+"light": "свет на фото: soft, golden, hard, dim или neon",
+"weather": "погода по фото и записи: clear, cloudy, rain, snow, fog или indoor",
+"pace": число от -1 (медленный, тихий день) до 1 (насыщенный, быстрый день) по тому, что происходит в записи}`;
 
 function parseJSON(content) {
   if (!content) return null;
@@ -195,6 +199,10 @@ function clean(j, model) {
     warmth: Math.max(-1, Math.min(1, Number(j.warmth) || 0)),
     music: str(j.music, 80),
     ambience: ['rain', 'wind', 'sea', 'street', 'fire'].includes(j.ambience) ? j.ambience : null,
+    time: ['morning', 'day', 'evening', 'night'].includes(j.time) ? j.time : null,
+    light: ['soft', 'golden', 'hard', 'dim', 'neon'].includes(j.light) ? j.light : null,
+    weather: ['clear', 'cloudy', 'rain', 'snow', 'fog', 'indoor'].includes(j.weather) ? j.weather : null,
+    pace: Number.isFinite(Number(j.pace)) && j.pace !== null ? Math.max(-1, Math.min(1, Number(j.pace))) : null,
   };
 }
 
@@ -245,5 +253,6 @@ export function fallbackRead({ text, mood, date }) {
     warmth: 0,
     music: null,
     ambience: null,
+    time: null, light: null, weather: null, pace: null,
   };
 }

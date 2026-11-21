@@ -38,24 +38,42 @@ export async function openViewer(entry, urls, actions) {
   current?.close(true);
   const mood = moodById(entry.mood);
   const grade = mood.grade;
-  const speed = grade.speed;
   const frags = fragmentsOf(entry.text);
-  const amb = ambienceOf(entry);
   const rnd = seeded(entry.id);
 
-  // Moments: one per photo; a single photo gives three moments over its details.
-  const moments = (urls.length > 1 ? urls.map((_, i) => ({ i })) : [{ i: 0 }, { i: 0 }, { i: 0 }]).map((m, k, all) => {
+  // ---------- how this day is filmed ----------
+  // Not just "sad means blue": the film is built from what was read in the day.
+  //  - pace (how eventful the text is) speeds up or slows down the mood's own pace;
+  //  - time of day sets the camera: morning pulls back (the day opens up),
+  //    evening and night move in (closer, more private), daytime drifts across;
+  //  - light and weather add their layer: golden haze, neon color, rain, snow, fog;
+  //  - transitions: an eventful or neon day cuts with a flash, a night or a
+  //    heavy day dips through darkness, everything else dissolves;
+  //  - a longer written fragment holds its moment longer.
+  const pace = Number.isFinite(entry.pace) ? entry.pace : 0;
+  const speed = Math.max(0.35, Math.min(1.8, grade.speed * (1 + 0.45 * pace)));
+  const time = entry.time || (grade.warm > 0.3 ? 'evening' : 'day');
+  const base = mood.base || mood.id;
+  const cut = pace > 0.35 || entry.light === 'neon' ? 'flash'
+    : time === 'night' || ['sad', 'tired', 'anxious'].includes(base) ? 'dip' : 'dissolve';
+  const amb = ambienceOf(entry) || (entry.weather === 'rain' ? 'rain' : null);
+
+  // Moments: one per photo; a single photo gives two to four moments over its
+  // details, one for each written fragment.
+  const plan = urls.length > 1 ? urls.map((_, i) => ({ i })) : Array.from({ length: Math.max(2, Math.min(4, frags.length || 3)) }, () => ({ i: 0 }));
+  const moments = plan.map((m, k, all) => {
     const z = 0.05 + 0.07 * Math.min(1, Math.max(0, speed - 0.4)); // how far the camera travels
-    const zin = k % 2 === 0;
+    const zin = time === 'morning' ? false : time === 'evening' || time === 'night' ? true : k % 2 === 0;
     const s0 = zin ? 1.02 : 1.02 + z, s1 = zin ? 1.02 + z : 1.02;
-    const lim = s => ((s - 1) / 2 / s) * 100 * 0.9; // stay inside the photo
+    const drift = time === 'day' ? 1 : 0.6; // daytime drifts across more
+    const lim = s => ((s - 1) / 2 / s) * 100 * 0.9 * drift; // stay inside the photo
     const pt = s => [(rnd() * 2 - 1) * lim(s), (rnd() * 2 - 1) * lim(s)];
-    return {
-      ...m,
-      from: [s0, ...pt(s0)], to: [s1, ...pt(s1)],
-      frag: frags.length ? frags[Math.min(frags.length - 1, Math.floor((k * frags.length) / all.length))] : '',
-    };
+    const frag = frags.length ? frags[Math.min(frags.length - 1, Math.floor((k * frags.length) / all.length))] : '';
+    return { ...m, from: [s0, ...pt(s0)], to: [s1, ...pt(s1)], frag };
   });
+  // relative length of each moment: a longer fragment stays longer
+  const avg = moments.reduce((a, m) => a + (m.frag.length || 60), 0) / moments.length;
+  moments.forEach(m => { m.weight = Math.max(0.7, Math.min(1.5, 0.6 + 0.4 * (m.frag.length || 60) / avg)); });
   const M = moments.length;
   const trans = Math.round(Math.min(2400, Math.max(450, 1200 / speed ** 1.5))); // crossfade length
 
@@ -66,6 +84,9 @@ export async function openViewer(entry, urls, actions) {
   el.setAttribute('aria-label', entry.title);
   el.style.setProperty('--speed', speed);
   el.style.setProperty('--grain', grade.grain);
+  el.dataset.time = time;
+  el.dataset.light = entry.light || '';
+  el.dataset.cut = cut;
   el.style.setProperty('--trans', trans + 'ms');
   el.innerHTML = `
     <div class="v-stage">
@@ -74,8 +95,10 @@ export async function openViewer(entry, urls, actions) {
       <div class="v-collage">
         ${urls.map((u, i) => `<button class="v-print" data-print="${i}" aria-label="Открыть фото ${i + 1}"><span><img src="${u}" alt=""></span></button>`).join('')}
       </div>
+      ${['rain', 'snow', 'fog'].includes(entry.weather) ? `<div class="v-weather" data-w="${entry.weather}" aria-hidden="true"></div>` : ''}
       <div class="v-grain" aria-hidden="true"></div>
       <div class="v-sweep" aria-hidden="true"></div>
+      <div class="v-cut" aria-hidden="true"></div>
     </div>
 
     <div class="v-top">
@@ -136,7 +159,9 @@ export async function openViewer(entry, urls, actions) {
 
   // ---------- the clock: moments change on the beat ----------
   const fallback = Math.round(7000 / speed);
-  let bounds = moments.map((_, k) => k * fallback).concat(M * fallback); // ms
+  const cum = [0];
+  moments.forEach(m => cum.push(cum.at(-1) + m.weight));
+  let bounds = cum.map(c => Math.round(c * fallback)); // ms
   let t0 = performance.now(), pausedAt = null, ended = false;
   const elapsed = () => (pausedAt ?? performance.now()) - t0;
   const setElapsed = ms => { t0 = (pausedAt ?? performance.now()) - ms; };
@@ -149,7 +174,8 @@ export async function openViewer(entry, urls, actions) {
     while (dur > 11) dur /= 2;
     const snap = t => { const a = b.accents.find(x => Math.abs(x - (t % b.duration)) < 0.18); return a == null ? t : t - (t % b.duration) + a; };
     const next = [0];
-    for (let k = 1; k <= M; k++) next.push(snap(b.offset + k * dur) * 1000);
+    // each moment lasts a whole number of beats, in proportion to its fragment
+    for (let k = 1; k <= M; k++) next.push(snap(b.offset + Math.round(cum[k] * dur / b.period) * b.period) * 1000);
     // only re-time if we're still in the first moment, so nothing jumps
     if (cur <= 0 && elapsed() < next[1]) { bounds = next; el.dataset.bpm = Math.round(b.bpm); }
     if (audio && M * dur > b.duration) audio.loop = true; else if (audio) audio.loop = false;
@@ -239,7 +265,11 @@ export async function openViewer(entry, urls, actions) {
     }
 
     // a fast day gets a quick light sweep on the change
-    if (!firstShow && speed >= 1.1 && !instant) { const sw = $('.v-sweep'); sw.classList.remove('is-on'); void sw.offsetWidth; sw.classList.add('is-on'); }
+    // the cut itself: a flash of light, a dip through darkness, or a plain dissolve
+    if (!firstShow && !instant && cut !== 'dissolve') {
+      const c = $('.v-cut'); c.classList.remove('is-on'); void c.offsetWidth; c.classList.add('is-on');
+      if (cut === 'flash') { const sw = $('.v-sweep'); sw.classList.remove('is-on'); void sw.offsetWidth; sw.classList.add('is-on'); }
+    }
 
     // the written fragment for this moment
     const fr = $('.v-frag');

@@ -3,7 +3,8 @@ import { MOODS, moodById, allMoods, setCustomMoods, customMoods } from './moods.
 import { icon } from './icons.js';
 import { searchTracks, findTrack } from './music.js';
 import { readDay, fallbackRead, hasAI } from './ai.js';
-import { shrink, thumbDataURL, thumbBlob } from './photo.js';
+import { shrink, thumbDataURL, thumbBlob, paletteOf, loadImage } from './photo.js';
+import { openAbout } from './about.js';
 import { createBook } from './book.js';
 import { createDecor, DEFAULT_LOOK } from './decor.js';
 import { stickersReady } from './stickers.js';
@@ -32,14 +33,24 @@ const photoUrls = e => (e.photos || []).map(urlOf);
 const coverOf = e => urlOf(e.thumb || e.photos[0]);
 
 // Makes the light copies that are missing, a few at a time, then redraws the album.
+// Also remembers each day's colors: the album prints are tinted with them.
 async function makeThumbs() {
   let made = 0;
   for (const e of state.entries) {
-    if (e.thumb || !e.photos?.[0]) continue;
-    try { e.thumb = await thumbBlob(e.photos[0]); await db.put('entries', e); made++; } catch { /* keep the full photo */ }
+    if ((e.thumb && e.palette) || !e.photos?.[0]) continue;
+    try {
+      e.thumb ||= await thumbBlob(e.photos[0]);
+      e.palette ||= await paletteFromBlob(e.thumb);
+      await db.put('entries', e);
+      made++;
+    } catch { /* keep the full photo */ }
     if (made % 6 === 0) book?.refresh();
   }
   if (made) book?.refresh();
+}
+async function paletteFromBlob(blob) {
+  const url = URL.createObjectURL(blob);
+  try { return paletteOf(await loadImage(url)); } finally { URL.revokeObjectURL(url); }
 }
 
 // Days saved while the music catalog couldn't be reached get their song now,
@@ -61,6 +72,18 @@ async function load() {
   const [entries, folders, moods, look] = await Promise.all([db.all('entries'), db.all('folders'), db.all('moods'), db.get('meta', 'book')]);
   if (look) { const { bookmark, ...rest } = look; state.look = { ...structuredClone(DEFAULT_LOOK), ...rest }; }
   setCustomMoods(moods.sort((a, b) => a.createdAt - b.createdAt));
+  // the example album fills itself the first time it is opened
+  if (db.DEMO && !entries.length) {
+    const { seedDemo, DEMO_LOOK } = await import('./demo.js');
+    const note = document.createElement('div');
+    note.className = 'demo-loading glass';
+    note.textContent = 'Собираем пример альбома…';
+    document.body.appendChild(note);
+    try {
+      entries.push(...await seedDemo(db.put, (n, total) => { note.textContent = `Собираем пример альбома… ${n} из ${total}`; }));
+      if (!look) { state.look = { ...structuredClone(DEFAULT_LOOK), ...structuredClone(DEMO_LOOK) }; await db.put('meta', state.look); }
+    } finally { note.remove(); }
+  }
   state.entries = entries.sort(byDate);
   // the collage shapes each frame like its photo: remember the cover's proportions
   for (const e of state.entries) {
@@ -203,6 +226,9 @@ function mountBook() {
     items: () => [...visibleEntries()].reverse(), // the album reads from the oldest day
     aspect: e => e.aspect || 4 / 3,
     showToday: () => state.filter.type === 'all' && !state.query.trim(),
+    demo: db.DEMO,
+    isEmpty: () => !state.entries.length,
+    onAbout: () => openAbout(),
     urlOf: coverOf,
     look: () => state.look,
     filterLabel,
@@ -688,7 +714,7 @@ function openForm(entry = null) {
 
     try {
       const changed = !entry || entry.text !== draft.text || entry.mood !== draft.mood || entry.photos[0] !== draft.photos[0] || (entry.track?.id !== draft.track?.id);
-      let read = entry && !changed ? { title: entry.title, caption: entry.caption, atmosphere: entry.atmosphere, warmth: entry.warmth, model: entry.model, ambience: entry.ambience } : null;
+      let read = entry && !changed ? { title: entry.title, caption: entry.caption, atmosphere: entry.atmosphere, warmth: entry.warmth, model: entry.model, ambience: entry.ambience, time: entry.time, light: entry.light, weather: entry.weather, pace: entry.pace } : null;
       if (!read) {
         step(hasAI() ? 'Читаем запись и смотрим фото…' : 'Собираем воспоминание…');
         const photo = await thumbDataURL(draft.photos[0]);
@@ -714,6 +740,11 @@ function openForm(entry = null) {
         aspect: await aspectOf(draft.photos[0]),
         thumb: entry && entry.photos[0] === draft.photos[0] && entry.thumb ? entry.thumb : await thumbBlob(draft.photos[0]).catch(() => null),
         ambience: read.ambience ?? entry?.ambience ?? null,
+        time: read.time ?? entry?.time ?? null,
+        light: read.light ?? entry?.light ?? null,
+        weather: read.weather ?? entry?.weather ?? null,
+        pace: read.pace ?? entry?.pace ?? null,
+        palette: entry && entry.photos[0] === draft.photos[0] && entry.palette ? entry.palette : await paletteFromBlob(draft.photos[0]).catch(() => null),
         track: draft.track,
         trackBy: draft.trackBy,
         title: userTitle || read.title,

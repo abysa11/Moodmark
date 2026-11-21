@@ -1,6 +1,9 @@
 // IndexedDB storage: entries (with photo blobs), folders, custom moods and
 // meta (the album's look: cover color and stickers).
-const DB_NAME = 'moodmark';
+// ?demo opens the example album: a separate database, so the example never
+// mixes with real entries.
+export const DEMO = new URLSearchParams(location.search).has('demo');
+const DB_NAME = DEMO ? 'moodmark-demo' : 'moodmark';
 const VERSION = 3;
 let dbp;
 
