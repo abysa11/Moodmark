@@ -1496,3 +1496,9 @@ body { background-color: #1f78c8; color: var(--ink); }
 .leaf-back.with-page .leaf-page { display: block; }
 .leaf-back.with-page .cover-mirror { display: none; }
 .leaf-page .stk-layer { pointer-events: none; }
+
+/* the cover's frame, logo, title and subtitle share one axis: the frame is
+   inset evenly, and the title is nudged back by the letter-spacing its last
+   letter leaves trailing on the right */
+.cover-frame { inset: 6% 6.5%; }
+.cover-title { transform: translateX(-0.06em); }
