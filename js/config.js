@@ -14,4 +14,4 @@ export const KEYS = {
 // The published site has no keys: it asks the AI through a small proxy that
 // keeps the key on its own server (see proxy/README.md). Put its address here,
 // ending in /v1. Not a secret.
-export const AI_PROXY = local.AI_PROXY ?? '';
+export const AI_PROXY = local.AI_PROXY ?? 'https://moodmark-ai.abysa11.workers.dev/v1';
