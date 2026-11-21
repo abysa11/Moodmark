@@ -847,32 +847,32 @@ body.has-viewer .side, body.has-viewer .main { visibility: hidden; transition: v
 @keyframes glow-a { to { transform: translate(12vw, 8vh) scale(1.15); } }
 @keyframes glow-b { to { transform: translate(-10vw, -6vh) scale(0.9); } }
 
-/* near layer: the photo itself, the camera moving through it */
-.v-frame {
-  position: absolute; display: block; padding: 0;
-  overflow: hidden;
-  border-radius: var(--r-lg);
-  box-shadow: 0 24px 64px rgba(17, 17, 19, 0.24);
+/* near layer: the photos as prints. The moment's photo is large in the
+   middle; the others lie around it, building a collage of the day */
+.v-collage {
+  position: absolute; inset: 0;
+  transform: translate(calc(var(--mx) * -10px), calc(var(--my) * -8px));
+  transition: transform 1200ms var(--ease);
+}
+.v-print {
+  position: absolute; display: block;
+  padding: 1.6%;
+  background: #fff;
+  border-radius: 3px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  opacity: 0;
   cursor: zoom-in;
-  opacity: 0;
-  transform: translate(calc(var(--mx) * -10px), calc(var(--my) * -8px)) scale(0.96);
-  transition: opacity 900ms var(--ease), transform 1200ms var(--ease), left 900ms var(--ease-io), top 900ms var(--ease-io), width 900ms var(--ease-io), height 900ms var(--ease-io), box-shadow 2400ms var(--ease), border-radius 2400ms var(--ease), --f 2600ms var(--ease-io);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--f), #000 calc(100% - var(--f)), transparent), linear-gradient(180deg, transparent, #000 var(--f), #000 calc(100% - var(--f)), transparent);
-  -webkit-mask-composite: source-in;
-          mask-image: linear-gradient(90deg, transparent, #000 var(--f), #000 calc(100% - var(--f)), transparent), linear-gradient(180deg, transparent, #000 var(--f), #000 calc(100% - var(--f)), transparent);
-          mask-composite: intersect;
-}
-.viewer.is-photo .v-frame { opacity: 1; transform: translate(calc(var(--mx) * -10px), calc(var(--my) * -8px)); }
-.viewer.is-world .v-frame { --f: 7%; box-shadow: none; border-radius: 4px; }
-.v-frame:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
-.v-photo {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  object-fit: cover;
-  opacity: 0;
   transform-origin: center;
-  transition: opacity var(--trans) var(--ease);
+  transition: transform var(--move, 1200ms) var(--ease-io), opacity 800ms var(--ease), filter 800ms var(--ease), box-shadow 800ms var(--ease);
 }
-.v-photo.is-on { opacity: 1; }
+.v-print span { display: block; width: 100%; height: 100%; overflow: hidden; }
+.v-print img { width: 100%; height: 100%; object-fit: cover; transform-origin: center; }
+.v-print.is-laid { opacity: 1; z-index: 2; }
+.viewer:not(.is-ended) .v-print.is-laid { filter: brightness(0.7) saturate(0.85); }
+.viewer.is-photo .v-print.is-hero { opacity: 1; z-index: 3; box-shadow: 0 24px 64px rgba(0, 0, 0, 0.38); }
+.v-print:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+.viewer.is-ended .v-collage { animation: settle 14s var(--ease) both; }
+@keyframes settle { to { transform: scale(0.97); } }
 
 /* a quick sweep of light on a fast day's cut */
 .v-sweep { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--c2) 70%, #fff) 50%, transparent 70%); mix-blend-mode: screen; }
@@ -891,7 +891,7 @@ body.has-viewer .side, body.has-viewer .main { visibility: hidden; transition: v
 }
 .viewer.is-world .v-grain { opacity: calc(var(--grain) * 4 + 0.15); }
 @keyframes grain { 25% { transform: translate(-3%, 2%); } 50% { transform: translate(2%, -3%); } 75% { transform: translate(-1%, 3%); } }
-.viewer.is-paused .v-photo, .viewer.is-paused .v-light i, .viewer.is-paused .v-grain { animation-play-state: paused; }
+.viewer.is-paused .v-light i, .viewer.is-paused .v-grain { animation-play-state: paused; }
 
 /* shade so the words read over any photo */
 .v-stage::after {
@@ -953,6 +953,7 @@ body.has-viewer .side, body.has-viewer .main { visibility: hidden; transition: v
 .v-again, .v-unmute {
   position: absolute; z-index: 4; left: 50%; top: 50%;
   transform: translate(-50%, -50%);
+  white-space: nowrap;
   display: inline-flex; align-items: center; gap: var(--s2);
   height: 52px; padding: 0 var(--s6);
   border-radius: var(--pill);
@@ -963,7 +964,8 @@ body.has-viewer .side, body.has-viewer .main { visibility: hidden; transition: v
 }
 .v-unmute { top: auto; bottom: var(--s6); transform: translateX(-50%); height: 44px; font-size: 14px; }
 .v-again[hidden], .v-unmute[hidden] { display: none; }
-.viewer.is-ended .v-frame { cursor: default; }
+/* at the end it waits under the collage, out of the photos' way */
+.v-again { top: auto; bottom: var(--s12); left: auto; right: var(--s12); transform: none; }
 
 .v-sheet {
   position: absolute; z-index: 6;
@@ -1174,6 +1176,7 @@ body.is-intro .main { opacity: 0; transform: translateY(24px); }
   .v-frag { font-size: 16px; }
   .v-sheet { top: 80px; right: var(--s3); left: var(--s3); width: auto; bottom: var(--s3); }
   .v-unmute { bottom: auto; top: 76px; }
+  .v-again { right: 50%; transform: translateX(50%); bottom: auto; top: 61%; }
   .cloud-bank i { filter: blur(9px); }
 }
 

@@ -1,7 +1,7 @@
 // The memory view: a short film made of the day.
 //
-// Cinema mode: the photos play as moments. Each moment slowly moves in or out
-// of its photo (more slowly on a calm day, faster on a busy one), over a
+// The photos play as moments. Each photo comes up large and the camera slowly
+// moves in or out of it (more slowly on a calm day, faster on a busy one), over a
 // deeply blurred copy of the same photo, with light in the photo's own colors,
 // film grain and a soft vignette. Moments change on the beat of the day's
 // song, and each one shows a fragment of what was written.
@@ -71,9 +71,9 @@ export async function openViewer(entry, urls, actions) {
     <div class="v-stage">
       <canvas class="v-bg"></canvas><canvas class="v-bg"></canvas>
       <div class="v-light" aria-hidden="true"><i></i><i></i><i></i></div>
-      <button class="v-frame" data-act="original" aria-label="Открыть оригинал фото">
-        <img class="v-photo" alt=""><img class="v-photo" alt="">
-      </button>
+      <div class="v-collage">
+        ${urls.map((u, i) => `<button class="v-print" data-print="${i}" aria-label="Открыть фото ${i + 1}"><span><img src="${u}" alt=""></span></button>`).join('')}
+      </div>
       <div class="v-grain" aria-hidden="true"></div>
       <div class="v-sweep" aria-hidden="true"></div>
     </div>
@@ -112,9 +112,8 @@ export async function openViewer(entry, urls, actions) {
   const $ = s => el.querySelector(s);
 
   const bgs = [...el.querySelectorAll('.v-bg')];
-  const photos = [...el.querySelectorAll('.v-photo')];
-  const frame = $('.v-frame');
-  let alive = true, cur = -1, front = 0, bgFront = 0, bgPhoto = -1, imgs = [], palettes = [];
+  const prints = [...el.querySelectorAll('.v-print')];
+  let alive = true, cur = -1, bgFront = 0, bgPhoto = -1, imgs = [], palettes = [], slots = [], heroes = [];
   let anims = [];
 
   // ---------- music ----------
@@ -156,19 +155,57 @@ export async function openViewer(entry, urls, actions) {
     if (audio && M * dur > b.duration) audio.loop = true; else if (audio) audio.loop = false;
   });
 
-  // ---------- painting ----------
-  const place = i => {
-    const im = imgs[i];
-    const wide = innerWidth >= 720;
-    const r = fitRect(im.naturalWidth, im.naturalHeight, innerWidth, innerHeight, wide ? 0.66 : 0.92, wide ? 0.68 : 0.6);
-    if (wide) r.y = Math.max(80, r.y - Math.round(innerHeight * 0.07));
-    else r.y = Math.max(72, r.y - Math.round(innerHeight * 0.1));
-    Object.assign(frame.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' });
-    el.style.setProperty('--px', r.x + 'px');
-    el.style.setProperty('--py', r.y + 'px');
-    el.style.setProperty('--pr', innerWidth - r.x - r.w + 'px');
-    el.style.setProperty('--pb', innerHeight - r.y - r.h + 'px');
-  };
+  // ---------- the collage ----------
+  // Every photo has a place on the "table" (a loose grid of prints with small
+  // turns) and a large place in the middle. The photo of the moment comes up
+  // large; when its moment is over it is laid down in its place, so the day
+  // builds up into a collage.
+  function layout() {
+    const W = innerWidth, H = innerHeight, wide = W >= 720, n = imgs.length;
+    const area = wide ? { x: W * 0.05, y: H * 0.11, w: W * 0.9, h: H * 0.6 } : { x: W * 0.05, y: H * 0.1, w: W * 0.9, h: H * 0.48 };
+    const cols = Math.max(1, Math.min(n, Math.round(Math.sqrt((n * area.w) / area.h / 1.2))));
+    const rows = Math.ceil(n / cols);
+    const cw = area.w / cols, ch = area.h / rows;
+    const r2 = seeded(entry.id + ':collage');
+    slots = imgs.map((im, j) => {
+      const c = j % cols, r = Math.floor(j / cols);
+      const inRow = r === rows - 1 ? n - cols * (rows - 1) : cols;
+      const f = fitRect(im.naturalWidth, im.naturalHeight, cw, ch, 0.84, 0.84);
+      return {
+        x: area.x + ((cols - inRow) * cw) / 2 + c * cw + f.x + (r2() - 0.5) * cw * 0.12,
+        y: area.y + r * ch + f.y + (r2() - 0.5) * ch * 0.12,
+        w: f.w, h: f.h, rot: (r2() - 0.5) * 9,
+      };
+    });
+    heroes = imgs.map(im => {
+      const r = fitRect(im.naturalWidth, im.naturalHeight, W, H, wide ? 0.62 : 0.9, wide ? 0.64 : 0.56);
+      r.y = wide ? Math.max(80, r.y - Math.round(H * 0.07)) : Math.max(72, r.y - Math.round(H * 0.1));
+      return r;
+    });
+    prints.forEach((p, j) => Object.assign(p.style, { left: slots[j].x + 'px', top: slots[j].y + 'px', width: slots[j].w + 'px', height: slots[j].h + 'px' }));
+    arrange();
+  }
+
+  function arrange() {
+    const shown = cur < 0 ? -1 : moments[cur].i;
+    prints.forEach((p, j) => {
+      const s = slots[j], h = heroes[j];
+      const isHero = !ended && j === shown;
+      const laid = ended || j < shown;
+      p.classList.toggle('is-hero', isHero);
+      p.classList.toggle('is-laid', laid && !isHero);
+      p.style.transform = isHero
+        ? `translate(${h.x + h.w / 2 - (s.x + s.w / 2)}px, ${h.y + h.h / 2 - (s.y + s.h / 2)}px) scale(${h.w / s.w})`
+        : laid ? `rotate(${s.rot}deg)` : `translateY(48px) scale(0.9) rotate(${s.rot}deg)`;
+    });
+    if (shown >= 0) {
+      const r = heroes[shown];
+      el.style.setProperty('--px', r.x + 'px');
+      el.style.setProperty('--py', r.y + 'px');
+      el.style.setProperty('--pr', innerWidth - r.x - r.w + 'px');
+      el.style.setProperty('--pb', innerHeight - r.y - r.h + 'px');
+    }
+  }
 
   const kenBurns = (img, m, ms) => {
     const tf = ([s, x, y]) => `scale(${s}) translate(${x}%, ${y}%)`;
@@ -183,15 +220,11 @@ export async function openViewer(entry, urls, actions) {
     cur = k;
     const dur = Math.max(1000, bounds[k + 1] - bounds[k]) + trans;
 
-    // photo: the hidden layer takes the new moment and fades in over the old one
-    const back = photos[1 - front];
-    back.src = urls[m.i];
+    // the moment's photo comes up large and the camera moves through it;
+    // the one before is laid down in its place in the collage
     anims.forEach(a => a?.cancel());
-    anims = [kenBurns(back, m, dur)];
-    back.classList.add('is-on');
-    photos[front].classList.remove('is-on');
-    front = 1 - front;
-    place(m.i);
+    anims = [kenBurns(prints[m.i].querySelector('img'), m, dur)];
+    arrange();
 
     // background and colors follow the photo
     if (bgPhoto !== m.i) {
@@ -232,6 +265,8 @@ export async function openViewer(entry, urls, actions) {
   function end() {
     ended = true;
     el.classList.add('is-ended');
+    anims.forEach(a => a?.cancel());
+    arrange(); // the whole day, laid out as a collage
     $('.v-again').hidden = false;
     fadeTo(0.15, 4000);
     setPlay(false, true);
@@ -265,6 +300,7 @@ export async function openViewer(entry, urls, actions) {
     if (audio) { const d = audio.duration || 30; audio.currentTime = (bounds[k] / 1000) % d; if (pausedAt == null) tryPlay(); }
     cur = -2; // force a redraw
     showMoment(k);
+    arrange();
     if (pausedAt == null) setPlay(true, true);
   };
   function replay() {
@@ -309,6 +345,8 @@ export async function openViewer(entry, urls, actions) {
   if (!alive) return;
   if (imgs.some(x => !x)) { const ok = imgs.find(Boolean); imgs = imgs.map(x => x || ok); }
   palettes = imgs.map(im => paletteOf(im));
+  el.style.setProperty('--move', Math.max(900, trans) + 'ms');
+  layout();
   setElapsed(0);
   showMoment(0, { instant: true });
   el.classList.add('is-photo');                                    // 1. the photo appears
@@ -319,7 +357,7 @@ export async function openViewer(entry, urls, actions) {
   let resizeT;
   const onResize = () => {
     clearTimeout(resizeT);
-    resizeT = setTimeout(() => { if (cur < 0) return; place(moments[cur].i); paintBlur(bgs[bgFront], imgs[moments[cur].i], grade, entry.warmth || 0); }, 120);
+    resizeT = setTimeout(() => { if (cur < 0) return; layout(); paintBlur(bgs[bgFront], imgs[moments[cur].i], grade, entry.warmth || 0); }, 120);
   };
   addEventListener('resize', onResize);
 
@@ -353,6 +391,8 @@ export async function openViewer(entry, urls, actions) {
   addEventListener('keydown', onKey);
 
   el.addEventListener('click', e => {
+    const pr = e.target.closest('[data-print]');
+    if (pr) return openOriginal(+pr.dataset.print);
     const b = e.target.closest('[data-act]');
     if (!b) { if (e.target.closest('.v-lightbox')) closeOriginal(); return; }
     const a = b.dataset.act;
@@ -360,7 +400,6 @@ export async function openViewer(entry, urls, actions) {
     else if (a === 'replay') replay();
     else if (a === 'unmute') tryPlay().then(ok => { if (ok && audio) audio.currentTime = (elapsed() / 1000) % (audio.duration || 30); });
     else if (a === 'amb') toggleAmb();
-    else if (a === 'original') openOriginal(moments[Math.max(0, cur)].i);
     else if (a === 'lb-close') closeOriginal();
     else if (a === 'read') { $('.v-sheet').hidden = false; el.classList.add('is-reading'); }
     else if (a === 'read-close') { $('.v-sheet').hidden = true; el.classList.remove('is-reading'); }

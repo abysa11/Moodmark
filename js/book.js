@@ -184,6 +184,9 @@ export function createBook(root, api) {
   }
 
   function pageHTML(i) {
+    return pageBody(i) + (pages[i] ? `<div class="stk-layer" data-page="${i}">${stickerHTML(pageStickers(i), null)}</div>` : '');
+  }
+  function pageBody(i) {
     const p = pages[i];
     const num = i > 0 && i < pages.length && p?.type !== 'end' ? `<span class="pg-num">${i}</span>` : '';
     if (p?.type === 'end') return '<div class="pg pg-end"></div>';
@@ -331,6 +334,7 @@ export function createBook(root, api) {
   let g = null, swiped = false;
   pagesEl.addEventListener('pointerdown', ev => {
     if (!open || busy || (ev.pointerType === 'mouse' && ev.button !== 0)) return;
+    if (decorating && ev.target.closest('.stk')) return;
     g = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, t: performance.now(), turn: null };
     swiped = false;
   });
@@ -366,7 +370,7 @@ export function createBook(root, api) {
   pagesEl.addEventListener('click', ev => { if (swiped) { ev.stopPropagation(); ev.preventDefault(); swiped = false; } }, true);
   // A click on the paper (not on a day) or on the covers closes the book.
   const closeOnClick = ev => {
-    if (!open || busy || ev.target.closest('button, a, input, label, .snap')) return;
+    if (!open || busy || decorating || ev.target.closest('button, a, input, label, .snap, .stk')) return;
     setOpen(false);
   };
   pagesEl.addEventListener('click', closeOnClick);
@@ -402,12 +406,10 @@ export function createBook(root, api) {
     renderStickers();
   }
 
-  function renderStickers() {
+  // Stickers: on the cover (no page) or on a page of the album (page number).
+  function stickerHTML(list, sel) {
     const look = api.look();
-    const layer = root.querySelector('.stk-layer');
-    // the selection frame belongs to decorating only
-    const sel = decorating ? layer.querySelector('.stk.is-sel')?.dataset.id : null;
-    layer.innerHTML = look.stickers.map(s => {
+    return list.map(s => {
       const src = stickerSrc(s.src, look.library);
       if (!src) return '';
       return `<div class="stk${s.id === sel ? ' is-sel' : ''}" data-id="${s.id}" style="left:${s.x * 100}%;top:${s.y * 100}%;width:${s.size * 100}%;--r:${s.rot}deg"
@@ -416,6 +418,15 @@ export function createBook(root, api) {
         ${decorating ? `<button class="stk-del" data-stk="del" aria-label="Удалить наклейку">${icon('close', 12)}</button><span class="stk-rot" data-stk="rot" aria-hidden="true">${icon('rotate', 12)}</span>` : ''}
       </div>`;
     }).join('');
+  }
+  // page stickers belong to the whole album, not to a search or filter
+  const pageStickers = i => (api.showToday() ? api.look().stickers.filter(s => s.page === i) : []);
+
+  function renderStickers() {
+    // the selection frame belongs to decorating only
+    const sel = decorating ? root.querySelector('.stk.is-sel')?.dataset.id : null;
+    root.querySelector('.leaf-front .stk-layer').innerHTML = stickerHTML(api.look().stickers.filter(s => s.page == null), sel);
+    root.querySelectorAll('.page .stk-layer[data-page]').forEach(l => { l.innerHTML = stickerHTML(pageStickers(+l.dataset.page), sel); });
   }
 
   // ---------- public ----------
@@ -431,9 +442,14 @@ export function createBook(root, api) {
     goHome() { build(); if (open) turn(homeView()); else setOpen(true); },
     applyLook,
     renderStickers,
-    setDecorating(v) { decorating = v; if (v) setOpen(false); book.classList.toggle('is-decorating', v); root.classList.toggle('is-decorating', v); renderStickers(); sync(); },
+    // decorating the closed book edits the cover; the open book, its pages
+    setDecorating(v) { decorating = v; book.classList.toggle('is-decorating', v); root.classList.toggle('is-decorating', v); renderStickers(); sync(); },
+    // where a new sticker goes: the cover, or the open (right) page
+    target: () => (open ? (two ? Math.min(page + 1, pages.length - 1) : page) : null),
+    spread: () => ({ two, page }),
+    el: () => book,
     get open() { return open; },
     cover: () => root.querySelector('.leaf-front'),
-    layer: () => root.querySelector('.stk-layer'),
+    layer: () => root.querySelector('.leaf-front .stk-layer'),
   };
 }

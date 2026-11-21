@@ -1,5 +1,6 @@
 // Decorating the album: cover color and stickers (ready-made or made from
-// your own photo). While the panel is open the book stays
+// your own photo). With the book closed, stickers go on the cover; with the
+// book open, on its pages (and can be dragged across to the facing page). While the panel is open the book stays
 // closed and stickers on the cover can be moved, turned, resized and removed.
 import { icon } from './icons.js';
 import { esc } from './util.js';
@@ -38,7 +39,9 @@ export function createDecor(host, { look, save, book, toast, confirm }) {
     }
     if (tab === 'stickers') {
       return `
-        <p class="hint">Нажмите на наклейку — она появится на обложке. Её можно двигать, а за уголок — поворачивать и менять размер.</p>
+        <p class="hint">${book.open
+          ? 'Нажмите на наклейку — она ляжет на открытую страницу. Её можно двигать, перетащить на соседнюю страницу, а за уголок — поворачивать и менять размер.'
+          : 'Нажмите на наклейку — она появится на обложке. Её можно двигать, а за уголок — поворачивать и менять размер. Чтобы украсить страницы, откройте альбом и нажмите «Оформить».'}</p>
         <div class="stk-grid">${PRESETS.map(p => `<button class="stk-pick" data-add="p:${p.id}" aria-label="Наклеить: ${p.name}" title="${p.name}"><img src="${stickerSrc('p:' + p.id)}" alt=""></button>`).join('')}</div>
         <div class="decor-sub"><span>Свои наклейки</span></div>
         <div class="stk-grid">
@@ -62,7 +65,9 @@ export function createDecor(host, { look, save, book, toast, confirm }) {
 
   function addSticker(src) {
     const L = look();
-    const s = { id: uid(), src, x: 0.3 + Math.random() * 0.4, y: 0.62 + Math.random() * 0.2, size: 0.26, rot: Math.round(Math.random() * 16 - 8) };
+    const page = book.target();
+    const s = { id: uid(), src, x: 0.3 + Math.random() * 0.4, y: page == null ? 0.62 + Math.random() * 0.2 : 0.2 + Math.random() * 0.6, size: page == null ? 0.26 : 0.22, rot: Math.round(Math.random() * 16 - 8) };
+    if (page != null) s.page = page;
     L.stickers.push(s);
     selected = s.id;
     commit();
@@ -70,7 +75,7 @@ export function createDecor(host, { look, save, book, toast, confirm }) {
 
   function select(id) {
     selected = id;
-    book.layer().querySelectorAll('.stk').forEach(n => n.classList.toggle('is-sel', n.dataset.id === id));
+    book.el().querySelectorAll('.stk').forEach(n => n.classList.toggle('is-sel', n.dataset.id === id));
   }
 
   async function make(file) {
@@ -116,7 +121,7 @@ export function createDecor(host, { look, save, book, toast, confirm }) {
     render(); commit();
   }
 
-  // ---------- moving stickers on the cover ----------
+  // ---------- moving stickers on the cover or the pages ----------
   let drag = null;
   function onDown(ev) {
     const n = ev.target.closest('.stk');
@@ -127,7 +132,7 @@ export function createDecor(host, { look, save, book, toast, confirm }) {
     if (!s) return;
     select(s.id);
     n.focus({ preventScroll: true });
-    const r = book.cover().getBoundingClientRect();
+    const r = n.closest('.stk-layer').getBoundingClientRect();
     if (ev.target.closest('[data-stk="rot"]')) {
       const c = n.getBoundingClientRect();
       const cx = c.left + c.width / 2, cy = c.top + c.height / 2;
@@ -142,7 +147,9 @@ export function createDecor(host, { look, save, book, toast, confirm }) {
     if (!drag) return;
     const { s, n, r } = drag;
     if (drag.mode === 'move') {
-      s.x = Math.max(0, Math.min(1, (ev.clientX - drag.ox - r.left) / r.width));
+      // on an open spread a sticker may go over to the facing page
+      const reach = s.page != null && book.spread().two ? 1.6 : 1;
+      s.x = Math.max(1 - reach, Math.min(reach, (ev.clientX - drag.ox - r.left) / r.width));
       s.y = Math.max(0, Math.min(1, (ev.clientY - drag.oy - r.top) / r.height));
       n.style.left = s.x * 100 + '%'; n.style.top = s.y * 100 + '%';
     } else {
@@ -155,9 +162,16 @@ export function createDecor(host, { look, save, book, toast, confirm }) {
   }
   function onUp() {
     if (!drag) return;
+    const { s } = drag;
     drag.n.classList.remove('is-drag');
     drag = null;
-    save();
+    if (s.page != null) {
+      const { page } = book.spread();
+      if (s.x < 0 && s.page === page + 1) { s.page = page; s.x += 1; }
+      else if (s.x > 1 && s.page === page) { s.page = page + 1; s.x -= 1; }
+      s.x = Math.max(0, Math.min(1, s.x));
+      commit();
+    } else save();
   }
   function onLayerClick(ev) {
     const del = ev.target.closest('[data-stk="del"]');
@@ -181,15 +195,16 @@ export function createDecor(host, { look, save, book, toast, confirm }) {
     else if (k === '-') s.size = Math.max(0.08, s.size / 1.08);
     else if (k === '[') s.rot -= 5;
     else if (k === ']') s.rot += 5;
-    else if (k === 'Delete' || k === 'Backspace') { look().stickers = look().stickers.filter(x => x.id !== s.id); selected = null; commit(); book.cover().focus?.(); return; }
+    else if (k === 'Delete' || k === 'Backspace') { look().stickers = look().stickers.filter(x => x.id !== s.id); selected = null; commit(); return; }
     else return;
     ev.preventDefault();
     commit();
-    book.layer().querySelector(`.stk[data-id="${s.id}"]`)?.focus({ preventScroll: true });
+    book.el().querySelector(`.stk[data-id="${s.id}"]`)?.focus({ preventScroll: true });
   }
 
   function open() {
     if (el) return;
+    if (book.open) tab = 'stickers'; // an open album is decorated with stickers
     el = document.createElement('aside');
     el.className = 'decor glass-panel';
     el.setAttribute('aria-label', 'Оформление альбома');
@@ -223,7 +238,7 @@ export function createDecor(host, { look, save, book, toast, confirm }) {
       render();
       el.querySelector(`[data-tab="${tab}"]`).focus();
     });
-    const cover = book.cover();
+    const cover = book.el();
     cover.addEventListener('pointerdown', onDown);
     cover.addEventListener('pointermove', onMove);
     cover.addEventListener('pointerup', onUp);
@@ -241,7 +256,7 @@ export function createDecor(host, { look, save, book, toast, confirm }) {
 
   function close() {
     if (!el) return;
-    const cover = book.cover();
+    const cover = book.el();
     cover.removeEventListener('pointerdown', onDown);
     cover.removeEventListener('pointermove', onMove);
     cover.removeEventListener('pointerup', onUp);
