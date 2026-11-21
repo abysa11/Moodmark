@@ -76,14 +76,16 @@ function svgOf(id) {
 }
 const svgURL = id => 'data:image/svg+xml,' + encodeURIComponent(svgOf(id));
 
-// The cat: the white logo inside a glossy blue bubble, outlined like the rest.
+// The cat: the white logo inside a clear bubble, outlined like the rest.
 let catURL = null;
 const catReady = loadImage('assets/logo.png').then(img => {
   const S = 480, c = document.createElement('canvas');
   c.width = c.height = S;
   const x = c.getContext('2d');
-  const g = x.createLinearGradient(0, 0, 0, S);
-  g.addColorStop(0, '#8fdcff'); g.addColorStop(1, '#0b6fcf');
+  // clear body with a bright rim and a faint blue inside
+  const g = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  g.addColorStop(0, 'rgba(110,185,245,0.38)'); g.addColorStop(0.62, 'rgba(110,185,245,0.3)');
+  g.addColorStop(0.84, 'rgba(225,244,255,0.6)'); g.addColorStop(0.97, 'rgba(255,255,255,0.98)'); g.addColorStop(1, 'rgba(255,255,255,0)');
   x.fillStyle = g; x.beginPath(); x.arc(S / 2, S / 2, S / 2, 0, Math.PI * 2); x.fill();
   // the logo in white
   const w = document.createElement('canvas');
@@ -92,14 +94,15 @@ const catReady = loadImage('assets/logo.png').then(img => {
   wx.drawImage(img, S * 0.2, S * 0.2, S * 0.6, S * 0.6);
   wx.globalCompositeOperation = 'source-in';
   wx.fillStyle = '#fff'; wx.fillRect(0, 0, S, S);
-  x.drawImage(w, 0, 0);
+  x.save(); x.shadowColor = 'rgba(0,70,160,0.7)'; x.shadowBlur = 14; x.shadowOffsetY = 3;
+  x.drawImage(w, 0, 0); x.restore();
   // shine on the upper half
   x.save(); x.beginPath(); x.arc(S / 2, S / 2, S / 2, 0, Math.PI * 2); x.clip();
   const h = x.createLinearGradient(0, 0, 0, S * 0.5);
   h.addColorStop(0, 'rgba(255,255,255,0.75)'); h.addColorStop(1, 'rgba(255,255,255,0)');
   x.fillStyle = h; x.beginPath(); x.ellipse(S * 0.46, S * 0.24, S * 0.38, S * 0.2, 0, 0, Math.PI * 2); x.fill();
   x.restore();
-  catURL = outline(c, { min: 0 });
+  catURL = outline(c, { min: 0, keep: false });
 }).catch(() => {});
 
 // A sticker on the cover stores `src` as 'p:<preset>' or 'lib:<id>'.
@@ -153,14 +156,14 @@ function keepMain(d, w, h) {
   return true;
 }
 
-export function outline(src, { size = 480, min = 40 } = {}) {
+export function outline(src, { size = 480, min = 40, keep = true } = {}) {
   const w0 = src.naturalWidth || src.width, h0 = src.naturalHeight || src.height;
   const a = document.createElement('canvas');
   a.width = w0; a.height = h0;
   const ax = a.getContext('2d', { willReadFrequently: true });
   ax.drawImage(src, 0, 0);
   const img = ax.getImageData(0, 0, w0, h0), d = img.data;
-  if (!keepMain(d, w0, h0)) throw new Error('empty cut-out');
+  if (keep && !keepMain(d, w0, h0)) throw new Error('empty cut-out');
   ax.putImageData(img, 0, 0);
   let x0 = w0, y0 = h0, x1 = -1, y1 = -1;
   for (let y = 0; y < h0; y++) for (let x = 0; x < w0; x++) {
@@ -185,7 +188,8 @@ export function outline(src, { size = 480, min = 40 } = {}) {
   const mx = mask.getContext('2d', { willReadFrequently: true });
   mx.drawImage(cut, 0, 0);
   const md = mx.getImageData(0, 0, w, h);
-  for (let i = 3; i < md.data.length; i += 4) md.data[i] = md.data[i] > 96 ? 255 : 0;
+  const edge = keep ? 96 : 8; // a clear sticker (the bubble) counts its faint inside as body
+  for (let i = 3; i < md.data.length; i += 4) md.data[i] = md.data[i] > edge ? 255 : 0;
   mx.putImageData(md, 0, 0);
 
   const out = document.createElement('canvas');

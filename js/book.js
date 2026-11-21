@@ -86,11 +86,12 @@ export function createBook(root, api) {
     const items = api.items().map(e => ({ e }));
     // the last place in the album is always an empty frame for a new day
     if (api.showToday()) items.push({ today: true, done: items.some(it => it.e.date === today()) });
-    pages = [{ type: 'title' }, ...collage(items)];
+    // no title page: the glass cover is the title, the album starts with the days
+    pages = collage(items);
     // A new album has 10 empty pages to flip through. More pages appear only
     // once all of them are filled with photos.
-    if (api.showToday()) while (pages.length <= BLANK_PAGES) pages.push({ type: 'items', items: [] });
-    if (pages.length === 1) pages.push({ type: 'items', items: [] });
+    if (api.showToday()) while (pages.length < BLANK_PAGES) pages.push({ type: 'items', items: [] });
+    if (!pages.length) pages.push({ type: 'items', items: [] });
     // the back endpaper evens out the last spread
     if (two && pages.length % 2) pages.push({ type: 'end' });
   }
@@ -142,7 +143,7 @@ export function createBook(root, api) {
   // where the album opens: the page with today (or the latest day)
   const homePage = () => {
     const i = pages.findLastIndex(p => p.type === 'items' && p.items.length);
-    return i < 0 ? 1 : i;
+    return i < 0 ? 0 : i;
   };
   const homeView = () => viewOf(homePage());
   const pageOfEntry = id => pages.findIndex(p => p.type === 'items' && p.items.some(s => s.it.e?.id === id));
@@ -202,7 +203,7 @@ export function createBook(root, api) {
   }
   function pageBody(i) {
     const p = pages[i];
-    const num = i > 0 && i < pages.length && p?.type !== 'end' ? `<span class="pg-num">${i}</span>` : '';
+    const num = i < pages.length && p?.type !== 'end' ? `<span class="pg-num">${i + 1}</span>` : '';
     if (p?.type === 'end') return '<div class="pg pg-end"></div>';
     if (!p || p.type === 'blank') return `<div class="pg pg-blank"><span class="logo" aria-hidden="true"></span>${num}</div>`;
     if (p.type === 'title') return titlePage();
@@ -212,7 +213,7 @@ export function createBook(root, api) {
   }
 
   // the first page with photos, seen through the glass cover of the closed book
-  const firstPage = () => Math.max(1, pages.findIndex(p => p.type === 'items' && p.items.some(s => s.it.e)));
+  const firstPage = () => Math.max(0, pages.findIndex(p => p.type === 'items' && p.items.length));
 
   function renderSpread() {
     if (!open) { L.innerHTML = ''; R.innerHTML = pageHTML(firstPage()); }
@@ -220,7 +221,7 @@ export function createBook(root, api) {
     else { L.innerHTML = ''; R.innerHTML = pageHTML(page); }
     const vis = new Set(two ? [page, page + 1] : [page]);
     L.toggleAttribute('inert', !open); R.toggleAttribute('inert', !open);
-    pagesEl.setAttribute('aria-label', [...vis].filter(i => i > 0 && i < pages.length).map(i => `страница ${i}`).join(', ') || 'титул');
+    pagesEl.setAttribute('aria-label', [...vis].filter(i => i < pages.length).map(i => `страница ${i + 1}`).join(', '));
   }
 
   // ---------- turning ----------
@@ -297,8 +298,8 @@ export function createBook(root, api) {
 
   // ---------- bar ----------
   const spreadLabel = () => {
-    const nums = (two ? [page, page + 1] : [page]).filter(i => i > 0 && pages[i]?.type === 'items');
-    return nums.length ? `<span class="bar-pre">Стр. </span>${nums.join('–')} из ${pages.filter(p => p.type === 'items').length}` : 'Титул';
+    const nums = (two ? [page, page + 1] : [page]).filter(i => pages[i]?.type === 'items').map(i => i + 1);
+    return nums.length ? `<span class="bar-pre">Стр. </span>${nums.join('–')} из ${pages.filter(p => p.type === 'items').length}` : '';
   };
 
   function sync(barOnly) {
