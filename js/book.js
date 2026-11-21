@@ -87,11 +87,14 @@ export function createBook(root, api) {
     // the last place in the album is always an empty frame for a new day
     if (api.showToday()) items.push({ today: true, done: items.some(it => it.e.date === today()) });
     // no title page: the glass cover is the title, the album starts with the days
-    pages = collage(items);
+    // on a spread the first left page is the inside of the glass cover,
+    // so the first page of days lies on the right, as in a real book
+    pages = [...(two ? [{ type: 'inside' }] : []), ...collage(items)];
     // A new album has 10 empty pages to flip through. More pages appear only
     // once all of them are filled with photos.
-    if (api.showToday()) while (pages.length < BLANK_PAGES) pages.push({ type: 'items', items: [] });
-    if (!pages.length) pages.push({ type: 'items', items: [] });
+    const count = () => pages.filter(p => p.type === 'items').length;
+    if (api.showToday()) while (count() < BLANK_PAGES) pages.push({ type: 'items', items: [] });
+    if (!count()) pages.push({ type: 'items', items: [] });
     // the back endpaper evens out the last spread
     if (two && pages.length % 2) pages.push({ type: 'end' });
   }
@@ -198,12 +201,18 @@ export function createBook(root, api) {
       </div>`;
   }
 
+  // Page numbers count only pages of days (the cover's inside is not a page);
+  // stickers are kept by that number, so they stay put on phones and desktops.
+  const off = () => (pages[0]?.type === 'inside' ? 1 : 0);
+  const ord = i => i - off();
+
   function pageHTML(i) {
-    return pageBody(i) + (pages[i] ? `<div class="stk-layer" data-page="${i}">${stickerHTML(pageStickers(i), null)}</div>` : '');
+    if (pages[i]?.type === 'inside') return '<div class="pg pg-inside"></div>';
+    return pageBody(i) + (pages[i] ? `<div class="stk-layer" data-page="${ord(i)}">${stickerHTML(pageStickers(ord(i)), null)}</div>` : '');
   }
   function pageBody(i) {
     const p = pages[i];
-    const num = i < pages.length && p?.type !== 'end' ? `<span class="pg-num">${i + 1}</span>` : '';
+    const num = i < pages.length && p?.type !== 'end' ? `<span class="pg-num">${ord(i) + 1}</span>` : '';
     if (p?.type === 'end') return '<div class="pg pg-end"></div>';
     if (!p || p.type === 'blank') return `<div class="pg pg-blank"><span class="logo" aria-hidden="true"></span>${num}</div>`;
     if (p.type === 'title') return titlePage();
@@ -221,7 +230,7 @@ export function createBook(root, api) {
     else { L.innerHTML = ''; R.innerHTML = pageHTML(page); }
     const vis = new Set(two ? [page, page + 1] : [page]);
     L.toggleAttribute('inert', !open); R.toggleAttribute('inert', !open);
-    pagesEl.setAttribute('aria-label', [...vis].filter(i => i < pages.length).map(i => `страница ${i + 1}`).join(', '));
+    pagesEl.setAttribute('aria-label', [...vis].filter(i => i < pages.length).filter(i => pages[i]?.type === 'items').map(i => `страница ${ord(i) + 1}`).join(', '));
   }
 
   // ---------- turning ----------
@@ -298,7 +307,7 @@ export function createBook(root, api) {
 
   // ---------- bar ----------
   const spreadLabel = () => {
-    const nums = (two ? [page, page + 1] : [page]).filter(i => pages[i]?.type === 'items').map(i => i + 1);
+    const nums = (two ? [page, page + 1] : [page]).filter(i => pages[i]?.type === 'items').map(i => ord(i) + 1);
     return nums.length ? `<span class="bar-pre">Стр. </span>${nums.join('–')} из ${pages.filter(p => p.type === 'items').length}` : '';
   };
 
@@ -468,8 +477,9 @@ export function createBook(root, api) {
     // decorating the closed book edits the cover; the open book, its pages
     setDecorating(v) { decorating = v; book.classList.toggle('is-decorating', v); root.classList.toggle('is-decorating', v); renderStickers(); sync(); },
     // where a new sticker goes: the cover, or the open (right) page
-    target: () => (open ? (two ? Math.min(page + 1, pages.length - 1) : page) : null),
-    spread: () => ({ two, page }),
+    target: () => (open ? ord(two ? Math.min(page + 1, pages.length - 1) : page) : null),
+    // the left page's number on a spread (the right one is +1)
+    spread: () => ({ two, page: ord(page) }),
     el: () => book,
     get open() { return open; },
     cover: () => root.querySelector('.leaf-front'),

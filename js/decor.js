@@ -167,7 +167,8 @@ export function createDecor(host, { look, save, book, toast, confirm }) {
     drag = null;
     if (s.page != null) {
       const { page } = book.spread();
-      if (s.x < 0 && s.page === page + 1) { s.page = page; s.x += 1; }
+      // the left page of the first spread is the cover's inside: stickers stay on the page
+      if (s.x < 0 && s.page === page + 1 && page >= 0) { s.page = page; s.x += 1; }
       else if (s.x > 1 && s.page === page) { s.page = page + 1; s.x -= 1; }
       s.x = Math.max(0, Math.min(1, s.x));
       commit();

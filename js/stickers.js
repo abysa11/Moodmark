@@ -63,7 +63,10 @@ function svgOf(id) {
   const outline = parts.map(([tag, a]) => el(tag, { ...a, fill: a.fill === 'none' ? 'none' : '#fff', stroke: '#fff', 'stroke-width': Number(a['stroke-width'] || 0) + 12, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: 1 })).join('');
   const body = parts.map(([tag, a]) => el(tag, { ...a, fill: a.fill ?? G })).join('');
   const clip = parts.filter(([, a]) => a.fill !== 'none').map(([tag, a]) => el(tag, { ...a, fill: '#000', stroke: 'none' })).join('');
-  const rim = parts.filter(([, a]) => a.fill !== 'none').map(([tag, a]) => el(tag, { ...a, fill: 'none', stroke: 'rgba(255,255,255,0.75)', 'stroke-width': 1.5 })).join('');
+  // a light rim only on one-piece stickers: on pieces that overlap (petals,
+  // the note's head and stem) the rims would cross each other
+  const solid = parts.filter(([, a]) => a.fill !== 'none');
+  const rim = (solid.length === 1 ? solid : []).map(([tag, a]) => el(tag, { ...a, fill: 'none', stroke: 'rgba(255,255,255,0.75)', 'stroke-width': 1.5 })).join('');
   const fill = bubble
     ? `<radialGradient id="g" cx="0.5" cy="0.55" r="0.55"><stop offset="0" stop-color="#ffffff" stop-opacity="0.15"/><stop offset="0.7" stop-color="${c[1]}" stop-opacity="0.35"/><stop offset="0.93" stop-color="${c[1]}" stop-opacity="0.85"/><stop offset="1" stop-color="#ffffff" stop-opacity="0.95"/></radialGradient>`
     : `<linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c[0]}"/><stop offset="1" stop-color="${c[1]}"/></linearGradient>`;

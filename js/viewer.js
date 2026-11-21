@@ -13,7 +13,8 @@
 import { icon } from './icons.js';
 import { moodById } from './moods.js';
 import { fitRect, paintBlur, loadImage, paletteOf } from './photo.js';
-import { beatsOf, ambienceOf, AMBIENCE, playAmbience } from './audio.js';
+import { beatsOf } from './audio.js';
+import { startWeather } from './weather.js';
 import { fmtDate, esc } from './util.js';
 
 let current = null;
@@ -56,7 +57,6 @@ export async function openViewer(entry, urls, actions) {
   const base = mood.base || mood.id;
   const cut = pace > 0.35 || entry.light === 'neon' ? 'flash'
     : time === 'night' || ['sad', 'tired', 'anxious'].includes(base) ? 'dip' : 'dissolve';
-  const amb = ambienceOf(entry) || (entry.weather === 'rain' ? 'rain' : null);
 
   // Moments: one per photo; a single photo gives two to four moments over its
   // details, one for each written fragment.
@@ -95,7 +95,8 @@ export async function openViewer(entry, urls, actions) {
       <div class="v-collage">
         ${urls.map((u, i) => `<button class="v-print" data-print="${i}" aria-label="Открыть фото ${i + 1}"><span><img src="${u}" alt=""></span></button>`).join('')}
       </div>
-      ${['rain', 'snow', 'fog'].includes(entry.weather) ? `<div class="v-weather" data-w="${entry.weather}" aria-hidden="true"></div>` : ''}
+      ${entry.weather === 'fog' ? '<div class="v-weather" data-w="fog" aria-hidden="true"></div>' : ''}
+      ${['rain', 'snow'].includes(entry.weather) ? '<canvas class="v-weather" aria-hidden="true"></canvas>' : ''}
       <div class="v-grain" aria-hidden="true"></div>
       <div class="v-sweep" aria-hidden="true"></div>
       <div class="v-cut" aria-hidden="true"></div>
@@ -105,7 +106,6 @@ export async function openViewer(entry, urls, actions) {
       <button class="glass-btn icon-btn" data-act="close" aria-label="Закрыть">${icon('close')}</button>
       <span></span>
       <div class="v-top-right">
-        ${amb ? `<button class="v-amb glass" data-act="amb" aria-pressed="false" title="Звук фона из записи">${icon('wave', 16)}<span>${AMBIENCE[amb].name}</span></button>` : ''}
         <button class="glass-btn icon-btn" data-act="menu" aria-label="Действия с записью">${icon('more')}</button>
       </div>
     </div>
@@ -116,6 +116,14 @@ export async function openViewer(entry, urls, actions) {
       <p class="v-frag" aria-live="polite"></p>
       ${entry.text ? '<button class="v-more" data-act="read">Вся запись</button>' : ''}
     </div>
+
+    ${entry.track ? `
+      <div class="v-song glass">
+        <img src="${entry.track.thumb}" alt="" width="44" height="44">
+        <div class="v-song-meta"><b>${esc(entry.track.title)}</b><span>${esc(entry.track.artist)}</span></div>
+        <button class="v-song-btn" data-act="play" aria-label="Пауза">${icon('pause', 18)}</button>
+        <div class="v-song-bar"><i></i></div>
+      </div>` : ''}
 
     <button class="v-again" data-act="replay" hidden>${icon('replay', 18)}<span>Пережить ещё раз</span></button>
     <button class="v-unmute" data-act="unmute" hidden>${icon('volume', 18)}<span>Включить музыку</span></button>
@@ -304,6 +312,8 @@ export async function openViewer(entry, urls, actions) {
 
   // ---------- controls ----------
   const setPlay = (playing, keepAudio) => {
+    const b = $('[data-act="play"]');
+    if (b) { b.innerHTML = icon(playing ? 'pause' : 'play', 18); b.setAttribute('aria-label', playing ? 'Пауза' : 'Продолжить'); }
     if (!keepAudio && audio) { if (playing) tryPlay(); else fadeTo(0, 300, () => audio.pause()); }
   };
   const pause = () => {
@@ -344,15 +354,6 @@ export async function openViewer(entry, urls, actions) {
     setPlay(true, true);
   }
 
-  // ---------- background sound ----------
-  let ambience = null;
-  const toggleAmb = () => {
-    const b = $('[data-act="amb"]');
-    if (ambience) { ambience.stop(); ambience = null; b.setAttribute('aria-pressed', 'false'); return; }
-    ambience = playAmbience(amb);
-    b.setAttribute('aria-pressed', 'true');
-  };
-
   // ---------- original photo ----------
   const openOriginal = i => {
     const lb = $('.v-lightbox');
@@ -384,6 +385,15 @@ export async function openViewer(entry, urls, actions) {
   setTimeout(() => alive && el.classList.add('is-text'), 2200);   // 3. words arrive
   raf = requestAnimationFrame(tick);
 
+  // the song's own progress, at the bottom
+  audio?.addEventListener('timeupdate', () => {
+    const bar = $('.v-song-bar i');
+    if (bar && audio.duration) bar.style.transform = `scaleX(${audio.currentTime / audio.duration})`;
+  });
+  // rain or snow of the day, drawn as real drops and flakes
+  const wc = $('canvas.v-weather');
+  const weather = wc ? startWeather(wc, entry.weather, speed) : null;
+
   let resizeT;
   const onResize = () => {
     clearTimeout(resizeT);
@@ -396,7 +406,7 @@ export async function openViewer(entry, urls, actions) {
     if (!alive) return;
     alive = false;
     cancelAnimationFrame(raf);
-    ambience?.stop();
+    weather?.stop();
     removeEventListener('resize', onResize);
     removeEventListener('keydown', onKey);
     current = null;
@@ -429,7 +439,7 @@ export async function openViewer(entry, urls, actions) {
     if (a === 'close') close();
     else if (a === 'replay') replay();
     else if (a === 'unmute') tryPlay().then(ok => { if (ok && audio) audio.currentTime = (elapsed() / 1000) % (audio.duration || 30); });
-    else if (a === 'amb') toggleAmb();
+    else if (a === 'play') (pausedAt == null && !ended ? pause() : resume());
     else if (a === 'lb-close') closeOriginal();
     else if (a === 'read') { $('.v-sheet').hidden = false; el.classList.add('is-reading'); }
     else if (a === 'read-close') { $('.v-sheet').hidden = true; el.classList.remove('is-reading'); }
