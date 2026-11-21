@@ -302,8 +302,9 @@ export function createBook(root, api) {
   }
 
   function setOpen(v, at) {
-    if (busy && v === open) return;
-    if (v === open) { if (v && at != null) { page = viewOf(at); renderSpread(); sync(); } return; }
+    if (v === open) { if (v && at != null && !busy) { page = viewOf(at); renderSpread(); sync(); } return; }
+    // while the cover is turning, clicks wait: a half-turned cover can't change its mind
+    if (busy) return;
     open = v;
     if (v) { page = at != null ? viewOf(at) : homeView(); renderSpread(); }
     dressBack(page);
@@ -312,7 +313,11 @@ export function createBook(root, api) {
     // once the cover has come down, the glass shows the first page again
     if (!v) setTimeout(() => { if (!open) renderSpread(); }, reduce() ? 0 : 1000);
     busy = true;
-    setTimeout(() => { busy = false; }, reduce() ? 0 : 1000);
+    setTimeout(() => {
+      busy = false;
+      // the cover lies open: its back is clear glass again (the left page sits on it)
+      if (open) dressBack(-1);
+    }, reduce() ? 0 : 1000);
     sync();
     if (v) setTimeout(() => R.querySelector('button')?.focus({ preventScroll: true }), reduce() ? 0 : 1000);
   }
