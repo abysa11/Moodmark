@@ -6,9 +6,8 @@
 // film grain and a soft vignette. Moments change on the beat of the day's
 // song, and each one shows a fragment of what was written.
 //
-// It can be steered: the timeline at the bottom jumps between moments, a tap
-// on the photo opens the original, the archive mode shows everything at once
-// (all photos, the whole text, the song), and the memory can be played again.
+// A tap on the photo opens the original, the arrow keys move between moments,
+// space pauses, and at the end the memory can be played again.
 // A background sound (rain, wind, sea…) is offered only when the entry names
 // it, and stays off until turned on.
 import { icon } from './icons.js';
@@ -81,11 +80,11 @@ export async function openViewer(entry, urls, actions) {
 
     <div class="v-top">
       <button class="glass-btn icon-btn" data-act="close" aria-label="Закрыть">${icon('close')}</button>
-      <div class="v-modes glass" role="radiogroup" aria-label="Режим">
-        <button role="radio" aria-checked="true" data-mode="cinema">${icon('film', 16)}Кино</button>
-        <button role="radio" aria-checked="false" data-mode="archive">${icon('grid', 16)}Архив</button>
+      <span></span>
+      <div class="v-top-right">
+        ${amb ? `<button class="v-amb glass" data-act="amb" aria-pressed="false" title="Звук фона из записи">${icon('wave', 16)}<span>${AMBIENCE[amb].name}</span></button>` : ''}
+        <button class="glass-btn icon-btn" data-act="menu" aria-label="Действия с записью">${icon('more')}</button>
       </div>
-      <button class="glass-btn icon-btn" data-act="menu" aria-label="Действия с записью">${icon('more')}</button>
     </div>
 
     <div class="v-text">
@@ -95,20 +94,6 @@ export async function openViewer(entry, urls, actions) {
       ${entry.text ? '<button class="v-more" data-act="read">Вся запись</button>' : ''}
     </div>
 
-    <div class="v-dock glass">
-      <button class="icon-btn v-ctl" data-act="play" aria-label="Пауза">${icon('pause', 18)}</button>
-      <button class="icon-btn v-ctl" data-act="replay" aria-label="Пережить заново" title="Пережить заново">${icon('replay', 18)}</button>
-      <div class="v-line" role="group" aria-label="Моменты воспоминания">
-        ${moments.map((m, k) => `<button class="v-seg" data-seg="${k}" aria-label="Момент ${k + 1}${m.frag ? ': ' + esc(m.frag) : ''}"><i></i></button>`).join('')}
-      </div>
-      ${amb ? `<button class="v-amb" data-act="amb" aria-pressed="false" title="Звук фона из записи">${icon('wave', 16)}<span>${AMBIENCE[amb].name}</span></button>` : ''}
-      ${entry.track ? `
-        <div class="v-song">
-          <img src="${entry.track.thumb}" alt="" width="32" height="32">
-          <div><b>${esc(entry.track.title)}</b><span>${esc(entry.track.artist)}${entry.trackBy === 'ai' ? ' · подобрано Moodmark' : ''}</span></div>
-        </div>` : ''}
-    </div>
-
     <button class="v-again" data-act="replay" hidden>${icon('replay', 18)}<span>Пережить ещё раз</span></button>
     <button class="v-unmute" data-act="unmute" hidden>${icon('volume', 18)}<span>Включить музыку</span></button>
 
@@ -116,17 +101,6 @@ export async function openViewer(entry, urls, actions) {
       <div class="v-sheet-head"><span>${fmtDate(entry.date, true)}</span><button class="glass-btn icon-btn sm" data-act="read-close" aria-label="Скрыть запись">${icon('close', 18)}</button></div>
       <p>${esc(entry.text || '').replace(/\n/g, '<br>')}</p>
     </div>
-
-    <section class="v-archive" hidden aria-label="Архив записи">
-      <div class="v-archive-in">
-        <p class="v-date">${fmtDate(entry.date, true)} · ${esc(mood.name)}</p>
-        <h2 class="v-arch-title">${esc(entry.title)}</h2>
-        ${entry.atmosphere ? `<p class="v-arch-atmo">${esc(entry.atmosphere)}</p>` : ''}
-        ${entry.track ? `<p class="v-arch-song">${icon('music', 16)}${esc(entry.track.title)} — ${esc(entry.track.artist)}</p>` : ''}
-        <div class="v-arch-text">${(entry.text || '').split(/\n+/).filter(Boolean).map(p => `<p>${esc(p)}</p>`).join('')}</div>
-        <div class="v-arch-grid">${urls.map((u, i) => `<button data-orig="${i}" aria-label="Открыть фото ${i + 1}"><img src="${u}" alt="" loading="lazy"></button>`).join('')}</div>
-      </div>
-    </section>
 
     <div class="v-lightbox" hidden>
       <img alt="">
@@ -178,7 +152,7 @@ export async function openViewer(entry, urls, actions) {
     const next = [0];
     for (let k = 1; k <= M; k++) next.push(snap(b.offset + k * dur) * 1000);
     // only re-time if we're still in the first moment, so nothing jumps
-    if (cur <= 0 && elapsed() < next[1]) { bounds = next; $('.v-line').dataset.beat = Math.round(b.bpm); }
+    if (cur <= 0 && elapsed() < next[1]) { bounds = next; el.dataset.bpm = Math.round(b.bpm); }
     if (audio && M * dur > b.duration) audio.loop = true; else if (audio) audio.loop = false;
   });
 
@@ -239,7 +213,6 @@ export async function openViewer(entry, urls, actions) {
     fr.classList.remove('is-on');
     setTimeout(() => { if (cur !== k) return; fr.textContent = m.frag; fr.classList.toggle('is-on', Boolean(m.frag)); }, firstShow ? 0 : Math.min(600, trans / 2));
 
-    el.querySelectorAll('.v-seg').forEach((s, j) => { s.classList.toggle('is-done', j < k); s.classList.toggle('is-now', j === k); });
     if (pausedAt != null) anims.forEach(a => a?.pause());
   }
 
@@ -254,9 +227,6 @@ export async function openViewer(entry, urls, actions) {
     let k = 0;
     while (k < M - 1 && t >= bounds[k + 1]) k++;
     if (!ended) showMoment(k);
-    const segs = el.querySelectorAll('.v-seg i');
-    const p = Math.min(1, Math.max(0, (t - bounds[k]) / (bounds[k + 1] - bounds[k])));
-    segs.forEach((s, j) => { s.style.transform = `scaleX(${j < k || ended ? 1 : j === k ? p : 0})`; });
   };
 
   function end() {
@@ -269,9 +239,6 @@ export async function openViewer(entry, urls, actions) {
 
   // ---------- controls ----------
   const setPlay = (playing, keepAudio) => {
-    const b = $('[data-act="play"]');
-    b.innerHTML = icon(playing ? 'pause' : 'play', 18);
-    b.setAttribute('aria-label', playing ? 'Пауза' : 'Продолжить');
     if (!keepAudio && audio) { if (playing) tryPlay(); else fadeTo(0, 300, () => audio.pause()); }
   };
   const pause = () => {
@@ -320,16 +287,7 @@ export async function openViewer(entry, urls, actions) {
     b.setAttribute('aria-pressed', 'true');
   };
 
-  // ---------- modes, original photo, full text ----------
-  let wasPaused = false;
-  const setMode = mode => {
-    const archive = mode === 'archive';
-    el.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-checked', String(b.dataset.mode === mode)));
-    $('.v-archive').hidden = !archive;
-    el.classList.toggle('is-archive', archive);
-    if (archive) { wasPaused = pausedAt != null; if (!wasPaused) { pausedAt = performance.now(); anims.forEach(a => a?.pause()); } }
-    else if (!wasPaused && pausedAt != null && !ended) { t0 += performance.now() - pausedAt; pausedAt = null; anims.forEach(a => a?.play()); }
-  };
+  // ---------- original photo ----------
   const openOriginal = i => {
     const lb = $('.v-lightbox');
     lb.querySelector('img').src = urls[i];
@@ -386,7 +344,6 @@ export async function openViewer(entry, urls, actions) {
     if (document.querySelector('.modal-wrap, .menu')) return;
     if (e.key === 'Escape') {
       if (!$('.v-lightbox').hidden) closeOriginal();
-      else if (!$('.v-archive').hidden) setMode('cinema');
       else if (!$('.v-sheet').hidden) { $('.v-sheet').hidden = true; el.classList.remove('is-reading'); }
       else close();
     } else if (e.key === 'ArrowRight') seekTo(Math.min(M - 1, Math.max(0, cur) + 1));
@@ -396,17 +353,10 @@ export async function openViewer(entry, urls, actions) {
   addEventListener('keydown', onKey);
 
   el.addEventListener('click', e => {
-    const seg = e.target.closest('[data-seg]');
-    if (seg) return seekTo(+seg.dataset.seg);
-    const orig = e.target.closest('[data-orig]');
-    if (orig) return openOriginal(+orig.dataset.orig);
-    const mode = e.target.closest('[data-mode]');
-    if (mode) return setMode(mode.dataset.mode);
     const b = e.target.closest('[data-act]');
     if (!b) { if (e.target.closest('.v-lightbox')) closeOriginal(); return; }
     const a = b.dataset.act;
     if (a === 'close') close();
-    else if (a === 'play') (pausedAt == null && !ended ? pause() : resume());
     else if (a === 'replay') replay();
     else if (a === 'unmute') tryPlay().then(ok => { if (ok && audio) audio.currentTime = (elapsed() / 1000) % (audio.duration || 30); });
     else if (a === 'amb') toggleAmb();
