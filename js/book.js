@@ -157,7 +157,7 @@ export function createBook(root, api) {
         </button>`;
     }
     const e = s.it.e;
-    const url = api.urlOf(e.photos[0]);
+    const url = api.urlOf(e);
     return `
       <article class="snap" style="${pos}">
         <button class="snap-open" data-act="open" data-id="${e.id}" aria-label="Открыть «${esc(e.title)}»">

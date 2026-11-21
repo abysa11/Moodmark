@@ -3,7 +3,7 @@ import { MOODS, moodById, allMoods, setCustomMoods, customMoods } from './moods.
 import { icon } from './icons.js';
 import { searchTracks, findTrack } from './music.js';
 import { readDay, fallbackRead, hasAI } from './ai.js';
-import { shrink, thumbDataURL } from './photo.js';
+import { shrink, thumbDataURL, thumbBlob } from './photo.js';
 import { createBook } from './book.js';
 import { createDecor, DEFAULT_LOOK } from './decor.js';
 import { stickersReady } from './stickers.js';
@@ -28,6 +28,31 @@ let book = null, decor = null;
 const urlCache = new WeakMap();
 const urlOf = blob => { if (!urlCache.has(blob)) urlCache.set(blob, URL.createObjectURL(blob)); return urlCache.get(blob); };
 const photoUrls = e => (e.photos || []).map(urlOf);
+// the album pages use a light copy of the cover photo (smooth page turns on phones)
+const coverOf = e => urlOf(e.thumb || e.photos[0]);
+
+// Makes the light copies that are missing, a few at a time, then redraws the album.
+async function makeThumbs() {
+  let made = 0;
+  for (const e of state.entries) {
+    if (e.thumb || !e.photos?.[0]) continue;
+    try { e.thumb = await thumbBlob(e.photos[0]); await db.put('entries', e); made++; } catch { /* keep the full photo */ }
+    if (made % 6 === 0) book?.refresh();
+  }
+  if (made) book?.refresh();
+}
+
+// Days saved while the music catalog couldn't be reached get their song now,
+// picked by mood, so the memory plays with music next time.
+async function fillMissingSongs() {
+  for (const e of state.entries) {
+    if (e.track) continue;
+    const t = await findTrack(moodById(e.mood).query).catch(() => null);
+    if (!t) return; // still offline: try again on the next visit
+    e.track = t; e.trackBy = 'ai';
+    await db.put('entries', e).catch(() => {});
+  }
+}
 
 // ---------- data ----------
 const aspectOf = blob => createImageBitmap(blob).then(b => { const a = b.width / b.height; b.close(); return a; }).catch(() => 4 / 3);
@@ -178,7 +203,7 @@ function mountBook() {
     items: () => [...visibleEntries()].reverse(), // the album reads from the oldest day
     aspect: e => e.aspect || 4 / 3,
     showToday: () => state.filter.type === 'all' && !state.query.trim(),
-    urlOf,
+    urlOf: coverOf,
     look: () => state.look,
     filterLabel,
     onDecorate: () => decor.open(),
@@ -663,7 +688,7 @@ function openForm(entry = null) {
 
     try {
       const changed = !entry || entry.text !== draft.text || entry.mood !== draft.mood || entry.photos[0] !== draft.photos[0] || (entry.track?.id !== draft.track?.id);
-      let read = entry && !changed ? { title: entry.title, caption: entry.caption, atmosphere: entry.atmosphere, warmth: entry.warmth, model: entry.model } : null;
+      let read = entry && !changed ? { title: entry.title, caption: entry.caption, atmosphere: entry.atmosphere, warmth: entry.warmth, model: entry.model, ambience: entry.ambience } : null;
       if (!read) {
         step(hasAI() ? 'Читаем запись и смотрим фото…' : 'Собираем воспоминание…');
         const photo = await thumbDataURL(draft.photos[0]);
@@ -687,6 +712,8 @@ function openForm(entry = null) {
         mood: draft.mood,
         photos: draft.photos,
         aspect: await aspectOf(draft.photos[0]),
+        thumb: entry && entry.photos[0] === draft.photos[0] && entry.thumb ? entry.thumb : await thumbBlob(draft.photos[0]).catch(() => null),
+        ambience: read.ambience ?? entry?.ambience ?? null,
         track: draft.track,
         trackBy: draft.trackBy,
         title: userTitle || read.title,
@@ -723,6 +750,7 @@ async function boot() {
   await Promise.all([load(), stickersReady()]);
   mountBook();
   render();
+  makeThumbs().then(fillMissingSongs);
   await intro;
 }
 boot();

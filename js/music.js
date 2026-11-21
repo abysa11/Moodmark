@@ -18,23 +18,58 @@ export function toTrack(r) {
   };
 }
 
+// The catalog by fetch; where that fails (some phone browsers, content
+// blockers, slow networks) the same search goes through a script tag (JSONP),
+// which the iTunes API also supports.
+let jsonpN = 0;
+function jsonp(url, ms = 9000) {
+  return new Promise((resolve, reject) => {
+    const name = `__mmItunes${++jsonpN}`;
+    const s = document.createElement('script');
+    const done = () => { clearTimeout(t); delete window[name]; s.remove(); };
+    const t = setTimeout(() => { done(); reject(new Error('timeout')); }, ms);
+    window[name] = data => { done(); resolve(data); };
+    s.onerror = () => { done(); reject(new Error('network')); };
+    s.src = `${url}&callback=${name}`;
+    document.head.appendChild(s);
+  });
+}
+
+async function search(params, signal) {
+  const url = `https://itunes.apple.com/search?${new URLSearchParams({ media: 'music', entity: 'song', ...params })}`;
+  try {
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), 8000);
+    signal?.addEventListener('abort', () => c.abort());
+    try {
+      const res = await fetch(url, { signal: c.signal });
+      if (!res.ok) throw new Error(String(res.status));
+      return await res.json();
+    } finally { clearTimeout(t); }
+  } catch (e) {
+    if (signal?.aborted) throw e;
+    return jsonp(url);
+  }
+}
+
 let ctl = null;
 export async function searchTracks(q, limit = 12) {
   ctl?.abort();
   ctl = new AbortController();
-  const url = `https://itunes.apple.com/search?${new URLSearchParams({ term: q, media: 'music', entity: 'song', limit: String(limit) })}`;
-  const res = await fetch(url, { signal: ctl.signal });
-  if (!res.ok) throw new Error('Каталог Apple Music недоступен');
-  const data = await res.json();
+  const data = await search({ term: q, limit: String(limit) }, ctl.signal);
   return (data.results || []).filter(r => r.previewUrl).map(toTrack);
 }
 
-// One-shot search that doesn't cancel the user's live search.
+// One-shot search that doesn't cancel the user's live search. If the exact
+// query finds nothing, it tries again with the main words only.
 export async function findTrack(q) {
-  const url = `https://itunes.apple.com/search?${new URLSearchParams({ term: q, media: 'music', entity: 'song', limit: '5' })}`;
-  const res = await fetch(url);
-  if (!res.ok) return null;
-  const data = await res.json();
-  const r = (data.results || []).find(x => x.previewUrl);
-  return r ? toTrack(r) : null;
+  for (const term of [q, q.replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(w => w.length > 2).slice(0, 3).join(' ')]) {
+    if (!term) continue;
+    try {
+      const data = await search({ term, limit: '5' });
+      const r = (data.results || []).find(x => x.previewUrl);
+      if (r) return toTrack(r);
+    } catch { /* try the shorter query */ }
+  }
+  return null;
 }

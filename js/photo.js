@@ -106,3 +106,43 @@ export async function thumbDataURL(blob, max = 512) {
     return c.toDataURL('image/jpeg', 0.8);
   } finally { URL.revokeObjectURL(url); }
 }
+
+// A light copy of a photo for the album pages: page turns stay smooth on
+// phones even with many photos. Returns a JPEG blob.
+export async function thumbBlob(blob, max = 720) {
+  const bmp = await createImageBitmap(blob);
+  try {
+    const s = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    return await new Promise(r => c.toBlob(r, 'image/jpeg', 0.82));
+  } finally { bmp.close(); }
+}
+
+// The photo's own colors: up to three dominant, clearly different colors,
+// with a little preference for color over gray. Returns ['rgb(…)', …].
+export function paletteOf(img, count = 3) {
+  const c = document.createElement('canvas');
+  c.width = 40; c.height = 40;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.drawImage(img, 0, 0, 40, 40);
+  const d = x.getImageData(0, 0, 40, 40).data;
+  const bins = new Map();
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2];
+    const key = (r >> 5) << 6 | (g >> 5) << 3 | (b >> 5);
+    const sat = Math.max(r, g, b) - Math.min(r, g, b);
+    const bin = bins.get(key) || { n: 0, r: 0, g: 0, b: 0, w: 0 };
+    bin.n++; bin.r += r; bin.g += g; bin.b += b; bin.w += 1 + sat / 64;
+    bins.set(key, bin);
+  }
+  const picked = [];
+  for (const bin of [...bins.values()].sort((a, b) => b.w - a.w)) {
+    const col = [bin.r / bin.n, bin.g / bin.n, bin.b / bin.n];
+    if (picked.every(p => Math.hypot(p[0] - col[0], p[1] - col[1], p[2] - col[2]) > 60)) picked.push(col);
+    if (picked.length === count) break;
+  }
+  while (picked.length < count) picked.push(picked[0] || [200, 200, 205]);
+  return picked.map(([r, g, b]) => `rgb(${r | 0},${g | 0},${b | 0})`);
+}

@@ -1,0 +1,6 @@
+name = "moodmark-ai"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://abysa11.github.io,http://localhost:5173,http://127.0.0.1:5173"

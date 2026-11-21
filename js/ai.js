@@ -13,10 +13,24 @@
 //  1. readDay      — reads the text and the cover photo and returns the day's
 //                    title, caption, atmosphere, warmth and a song suggestion.
 //  2. fallbackRead — built-in rules when there is no key or every model failed.
-import { KEYS } from './config.js';
+import { KEYS, AI_PROXY } from './config.js';
 import { moodById } from './moods.js';
 
 const PROVIDERS = [
+  {
+    // the published site: OpenRouter's free models through the proxy that holds the key
+    id: 'proxy',
+    base: AI_PROXY,
+    vision: ['google/gemma-4-31b-it:free', 'nvidia/nemotron-3.5-super-vl:free', 'google/gemma-4-26b-a4b-it:free'],
+    text: ['google/gemma-4-31b-it:free', 'nvidia/nemotron-3.5-lightning:free', 'google/gemma-4-26b-a4b-it:free'],
+    discover: d => (d.data || []).filter(m => m.id.endsWith(':free') || m.id === 'openrouter/free').map(m => ({
+      id: m.id,
+      vision: (m.architecture?.input_modalities || []).includes('image'),
+      text: (m.architecture?.output_modalities || ['text']).join() === 'text',
+      ctx: m.context_length || 0,
+    })),
+    extra: { reasoning: { enabled: false } },
+  },
   {
     id: 'openrouter',
     base: 'https://openrouter.ai/api/v1',
@@ -69,7 +83,9 @@ const PROVIDERS = [
 ];
 const MAX_PER_PROVIDER = 4;
 
-const active = () => PROVIDERS.filter(p => KEYS[p.id]);
+// the proxy only when there is no OpenRouter key of our own (local development has one)
+const active = () => PROVIDERS.filter(p => (p.id === 'proxy' ? Boolean(AI_PROXY) && !KEYS.openrouter : KEYS[p.id]));
+const auth = p => (KEYS[p.id] ? { Authorization: `Bearer ${KEYS[p.id]}` } : {});
 export const hasAI = () => active().length > 0;
 
 // ---------- rest bookkeeping: models and whole platforms ----------
@@ -89,7 +105,7 @@ const pending = {};
 async function discovered(p) {
   const cached = JSON.parse(localStorage.getItem(listKey(p)) || 'null');
   if (cached && Date.now() - cached.at < 6 * 3600e3) return cached.models;
-  pending[p.id] ??= fetch(`${p.base}/models`, { headers: { Authorization: `Bearer ${KEYS[p.id]}` } })
+  pending[p.id] ??= fetch(`${p.base}/models`, { headers: auth(p) })
     .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
     .then(d => { const models = p.discover(d); localStorage.setItem(listKey(p), JSON.stringify({ at: Date.now(), models })); return models; })
     .catch(() => cached?.models || [])
@@ -104,7 +120,7 @@ async function modelsFor(p, kind) {
   const pref = p[kind].filter(id => !found.length || known.has(id));
   const others = fits.filter(m => !pref.includes(m.id)).sort((a, b) => b.ctx - a.ctx).map(m => m.id);
   const order = [...pref, ...others];
-  if (p.id === 'openrouter' && kind === 'text' && !order.includes('openrouter/free')) order.push('openrouter/free');
+  if ((p.id === 'openrouter' || p.id === 'proxy') && kind === 'text' && !order.includes('openrouter/free')) order.push('openrouter/free');
   return order.filter(id => !resting(`${p.id}:${id}`)).slice(0, MAX_PER_PROVIDER);
 }
 
@@ -119,7 +135,7 @@ async function call(p, model, body, timeout) {
     const res = await fetch(`${p.base}/chat/completions`, {
       method: 'POST',
       signal: c.signal,
-      headers: { Authorization: `Bearer ${KEYS[p.id]}`, 'Content-Type': 'application/json', ...p.headers },
+      headers: { ...auth(p), 'Content-Type': 'application/json', ...p.headers },
       body: JSON.stringify({ model, ...body, ...p.extra }),
     });
     if (res.status === 429) {
@@ -152,7 +168,8 @@ const SYSTEM = `Ты помогаешь личному дневнику Moodmark
 "caption": "одна короткая фраза из записи до 90 символов, почти дословно",
 "atmosphere": "одно предложение до 120 символов: свет, звук, температура и ощущение этого дня, как будто вспоминаешь его через год",
 "warmth": число от -1 (холодный день) до 1 (тёплый день),
-"music": "если песни нет: поисковый запрос для Apple Music — 'исполнитель название' реальной известной песни, которая подходит по настроению, фото и записи; иначе null"}`;
+"music": "если песни нет: поисковый запрос для Apple Music — 'исполнитель название' реальной известной песни, которая подходит по настроению, фото и записи; иначе null",
+"ambience": "звук фона этого дня, только если он прямо назван в записи или явно виден на фото: rain, wind, sea, street или fire; если нет — null. Не выдумывай."}`;
 
 function parseJSON(content) {
   if (!content) return null;
@@ -177,6 +194,7 @@ function clean(j, model) {
     atmosphere: str(j.atmosphere, 160),
     warmth: Math.max(-1, Math.min(1, Number(j.warmth) || 0)),
     music: str(j.music, 80),
+    ambience: ['rain', 'wind', 'sea', 'street', 'fire'].includes(j.ambience) ? j.ambience : null,
   };
 }
 
@@ -226,5 +244,6 @@ export function fallbackRead({ text, mood, date }) {
     atmosphere: null,
     warmth: 0,
     music: null,
+    ambience: null,
   };
 }
