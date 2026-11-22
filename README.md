@@ -1,27 +1,158 @@
 # Moodmark
 
-A diary that remembers how a day felt, kept as a photo album. Write about the day, attach photos and a song, and the day is pasted into a hardcover book. When you open the day later, the photo appears first, the background slowly fills with the same photo, enlarged and blurred, and the song plays.
+**Дневник, который помнит, как ощущался день.** Человек пишет о дне, прикладывает фото и песню, и Moodmark вклеивает день в стеклянный фотоальбом. Если открыть день через месяц или год, он проигрывается как короткий фильм: фото одно за другим ложатся коллажем в ритм той самой песни, цвет и свет взяты из самого дня, а движение и монтаж задаёт его настроение.
 
-## Run
+- **Прототип:** https://abysa11.github.io/Moodmark/
+- **Пример альбома из 8 дней:** https://abysa11.github.io/Moodmark/?demo
+- **Кейс:** ArtTech: Make the Invisible Visible. Невидимое здесь — ощущение дня, видимое — фильм-воспоминание.
+
+## Как проверить за 2 минуты
+
+1. Откройте https://abysa11.github.io/Moodmark/?demo. Это пример альбома из восьми дней с разным настроением. Он лежит в отдельной базе и не смешивается с настоящими записями.
+2. Нажмите на книгу, чтобы открыть её. Страницы листаются перетаскиванием, свайпом или стрелками на клавиатуре.
+3. Откройте любой день. Начнётся воспоминание с музыкой. Пробел ставит на паузу, стрелки переключают моменты.
+4. Сравните, например, «Концерт в старом ангаре» (драйв), «Серый вокзал и остывший чай» (грусть) и «Первый снег в парке» (спокойствие). Это один альбом, но каждый день выглядит и движется по-своему.
+5. Чтобы добавить свой день, откройте сайт без `?demo` и нажмите «Новая запись».
+
+Запуск локально (без сборки и без зависимостей):
 
 ```bash
 python3 -m http.server 5173 --bind 127.0.0.1
 ```
 
-Then open http://127.0.0.1:5173. For AI features, copy `js/config.local.example.js` to `js/config.local.js` and add at least one key. The published site has no keys in its code: it reaches the AI through a small proxy that keeps the key on Cloudflare (see `proxy/README.md`). Without any key the site still works: titles come from built-in rules and the song is chosen by mood.
+Затем откройте http://127.0.0.1:5173. Для ИИ локально скопируйте `js/config.local.example.js` в `js/config.local.js` и вставьте ключ. На опубликованном сайте ключей нет: ИИ работает через прокси на Cloudflare, и ключ хранится там (см. `proxy/README.md`). Без ключа сайт тоже работает: название дня придумывают встроенные правила, а песня подбирается по настроению.
 
-## How it works
+---
 
-- **Album:** the diary is a book. It starts closed, with a dark red cover; click the book to open it, click the paper to close it. It opens on today. A new album has 10 empty pages to flip through; more pages appear only once all of them are filled with photos. Days are pasted in like prints in an old photo album: frames of different sizes, shaped like each photo and scattered over the page (the same days always land in the same places), some held by black photo corners, with the title, mood and date under each. Turn pages like a real book: drag a page with the mouse or swipe it with a finger, and it follows; let go past a third of the way (or flick) and it turns, otherwise it lays back. The keyboard arrows work too; jump to a date with the calendar button. On phones the book shows one page at a time.
-- **Decorating:** pick any cover color (a palette or your own) and put stickers on the cover or, with the album open, on its pages (ready-made ones, or your own made from a photo). Stickers can be moved, turned and resized in place, and dragged across to the facing page. For your own sticker, the background is removed in the browser (the @imgly/background-removal model, about 50 MB, downloaded once) and the cut-out gets a thick white outline.
-- **Memory view:** opening a day plays it like a short film. Each photo is a moment: it comes up large while the camera slowly moves in or out of it, then is laid down as a print, so by the end the day lies as a collage. Behind it is a deeply blurred copy of the photo, with light in the photo's own colors and film grain. Moments change on the beat of the day's song (its tempo is read from the 30-second preview); a calm day moves slowly with long crossfades, a busy one cuts faster. Each moment shows a fragment of what was written. A tap on the photo opens the original, the arrow keys move between moments, space pauses, and at the end the memory can be played again. The day's song plays at the bottom, with its progress and a pause button. Rain and snow fall as particles at three depths.
-- **How the day shapes the film (no "sad = blue"):** the mood never brings its own colors; it brings behavior. Colors come from the day itself: its photos, and where a photo is gray, the cover of its song; warm or cool light comes from the hour and what the AI saw. The mood treats those colors (richer for joy, muted for sadness, faded for nostalgia), sets the key of the light, the pace range, the cuts and how things move: springy for joy, bouncing for drive, drifting for calm, heavy for sadness and tiredness, a restless tremor for anxiety. The song's energy makes the light livelier; sun, city lights or fire named in the entry add their own light. The AI also reads time of day, weather and pace: morning pulls the camera back, evening and night move it in; rain and snow fall as particles; a longer written fragment holds its moment longer. In the album each day's print takes its frame from the mood, its mat from the photo's colors and its tilt from the pace.
-- **Example album:** `?demo` opens an example album of eight days in its own storage, so it never mixes with real entries. Its photos were generated for the demo with the free Recraft model on OpenRouter.
-- **Entry:** date, photos (the first one is the cover), text, a mood (8 base moods plus your own), and a song from the Apple Music catalog (iTunes Search API, official 30-second previews).
-- **AI (free models and free tiers only):** reads the text and the cover photo and returns the day's title, a caption, an atmosphere line and a song suggestion if none was attached. The order is OpenRouter, Google Gemini, Groq, Mistral, Cerebras: only the platforms whose key is set. When a model hits its limit, it rests and the next model is tried; when a platform runs out of free quota for the day, the next platform takes over.
-- **Storage:** IndexedDB in the browser. Entries, photos, folders, moods and the album's look stay on the device.
-- **Sidebar:** search, folders, mood filters, and a text list of entries grouped by mood. A filter or search narrows the album to the matching days.
+## 1. Передача атмосферы дня
 
-## Tools
+Воспоминание — это не пост, а короткий фильм из дня:
 
-Fonts: Unbounded and Manrope (Google Fonts). Music: iTunes Search API. AI: OpenRouter, Gemini, Groq, Mistral, Cerebras (OpenAI-compatible APIs). Sticker cut-outs: @imgly/background-removal. No frameworks and no build step.
+- **Фото как моменты.** Каждое фото выходит крупно, камера медленно наезжает на него или отъезжает, затем фото ложится отпечатком. К концу день лежит коллажем, как на столе.
+- **Мир из самого фото.** Фон — тот же кадр, увеличенный до размеров экрана и сильно размытый. В нём плавают пятна света в цветах фото, поверх лежат плёночное зерно и мягкая виньетка. Кажется, что стоишь внутри снимка.
+- **Песня дня звучит и управляет фильмом.** Играет официальный 30-секундный фрагмент из Apple Music. Сайт сам находит в нём темп, доли и сильные акценты, и моменты сменяются ровно на бит.
+- **Слова дня.** На каждом моменте появляется фрагмент того, что человек написал. Весь текст открывается отдельной кнопкой.
+- **Погода и свет.** Если в дне был дождь или снег, они идут частицами в трёх слоях глубины. Туман ложится дымкой. Солнце, огни города или костёр, названные в записи, добавляют свой свет: солнечный ореол, боке огней, тёплое мерцание.
+- **Хочется вернуться.** В конце воспоминание можно проиграть снова, а любое фото открыть в оригинале.
+
+## 2. Визуальная система
+
+### Постоянные элементы (делают ленту цельной)
+
+- **Формат.** Каждый день — разворот фотоальбома и фильм-воспоминание.
+- **Шрифты.** Unbounded для заголовков, Manrope для текста.
+- **Как вклеен день.** Отпечаток в рамке и фотоуголки, под ним название, настроение и дата. В фильме дата и название всегда стоят в одном месте, внизу слева.
+- **Общий язык интерфейса — Frutiger Aero.** Небо и луг, стеклянная книга, глянцевые стикеры с белой вырубкой. Вступление — кот-логотип падает с неба сквозь облака.
+
+### Переменные элементы (меняются вместе с днём)
+
+| Что меняется | Откуда берётся |
+|---|---|
+| Палитра | из фото дня, а если фото серое — из обложки песни |
+| Тёплый или холодный свет | из часа дня и того, что ИИ увидел на фото |
+| Обработка цвета | от настроения: насыщеннее, приглушённее, выцветание плёнки, контраст |
+| Ритм смены кадров | темп и энергия песни + насыщенность дня по тексту, в пределах настроения |
+| Монтаж | вспышка для быстрых дней, уход в темноту для тяжёлых, растворение для спокойных |
+| Движение | пружинит (радость), подпрыгивает (драйв), плывёт (спокойствие, нежность), тяжело опускается (грусть, усталость), нервно дрожит (тревога) |
+| Камера | утро отъезжает, вечер и ночь наезжают, днём кадр плывёт шире |
+| Частицы и свет | дождь, снег, туман; солнце, огни города, огонь |
+| В альбоме | рамка — от настроения, паспарту — из цветов фото, наклон — от темпа дня |
+
+### Главное правило: не «грустно — значит синий»
+
+Настроение никогда не приносит свои цвета. Оно задаёт **поведение**: как ведут себя цвета самого дня, как быстро и как именно всё движется, как склеены кадры. Поэтому грустный день на закате остаётся тёплым по цвету, но движется тяжело, медленно и уходит в темноту. А радостный день с серыми фото получает цвет из обложки песни и пружинит. Правила лежат в `js/moods.js` (поля `treat`, `motion`, `pace`, `grade`).
+
+### Объяснимая логика: почему день выглядит именно так
+
+- **«Концерт в старом ангаре»** (драйв, неон, ночь, песня Daft Punk). Энергичная песня и насыщенный текст дают быстрый темп и монтаж вспышками. Драйв делает цвета дня сочнее и контрастнее, отпечатки подпрыгивают.
+- **«Серый вокзал и остывший чай»** (грусть, пасмурно, Radiohead). Медленная песня и тихий текст дают долгие кадры. Цвета вокзала приглушены и чуть затемнены, кадры уходят в темноту, отпечатки опускаются тяжело.
+- **«Первый снег в парке»** (спокойствие, день, снег, Sigur Rós). Кадры длинные и растворяются друг в друге, камера плывёт широко. Идёт снег в три слоя.
+
+## 3. Связь ввода и результата
+
+| Ввод | Что ИИ и сайт из него берут | Где это видно |
+|---|---|---|
+| **Текст** | название дня, подпись, строка атмосферы, время суток, погода, темп дня (−1…1), свет от солнца, города или огня | название папки дня, подписи в фильме, частицы, скорость, свет |
+| **Фото** | доминирующие цвета и их яркость, свет на фото (мягкий, золотой, жёсткий, тусклый, неон), тепло, сюжет, количество кадров | палитра и фон, обработка, число моментов, форма отпечатков |
+| **Песня** | темп (BPM), доли, акценты и энергия по аудиоанализу превью; жанр и год из каталога; цвета обложки | моменты сменяются на бит, энергия оживляет свет, обложка даёт цвет серым дням |
+| **Настроение** | выбирает сам человек (8 базовых + свои слова) | обработка цвета, движение, монтаж, рамки и границы темпа |
+
+Если песню не приложили, ИИ подбирает реальную песню из Apple Music по фото, тексту и настроению. Без ИИ песня подбирается по настроению.
+
+## 4. Папка дня и архив (UX)
+
+- **Запись дня:** дата, одно или несколько фото (первое — обложка), свободный текст, настроение и песня из каталога Apple Music (поиск по исполнителю или названию).
+- **Папка дня.** ИИ придумывает каждому дню название в одном тоне: 3–7 слов, без глаголов, с конкретными деталями. Например: «Кофе вдвоём на кухне», «Компания с паспортами перед полётом». Внутри дня хранятся текст, все фото, песня, подпись, строка атмосферы и параметры воспоминания.
+- **Архив — сама книга.** Дни вклеены по датам, книга открывается на сегодняшнем дне. Рядом карточка «Сегодня» с календарём, где точками отмечены дни с фото.
+- **Поиск дня:** боковая панель со списком записей, сгруппированных по настроениям; поиск по тексту; фильтр по настроению; свои папки («Лето 2026»); переход к дате через календарь.
+- **Действия с записью:** редактировать, добавить в папку, удалить (с подтверждением). Папки можно создавать и удалять, свои настроения тоже.
+- **Оформление альбома:** цвет обложки и стикеры на обложке и страницах. Есть готовые стикеры и свои: из фото прямо в браузере вырезается фон.
+- **Адаптивность.** На телефоне книга показывает одну страницу, панель сворачивается. На ноутбуке панель всегда открыта. Всё работает с клавиатуры.
+
+## 5. Художественные приёмы и референсы
+
+| Приём | Когда включается | Почему передаёт ощущение |
+|---|---|---|
+| **Эффект Кена Бёрнса** (медленный наезд и отъезд по фото) | всегда; утро отъезжает, вечер и ночь наезжают | неподвижное фото оживает, как воспоминание, к которому приближаешься |
+| **Фотоколлаж «джойнеры» Дэвида Хокни** | фото ложатся отпечатками в коллаж | день складывается из многих взглядов, а не из одного кадра |
+| **Старый семейный фотоальбом** | всегда в книге: фотоуголки, паспарту, подписи | ощущение личного, бережно хранимого |
+| **Размытая фотография и боке** (в духе размытых картин Герхарда Рихтера) | фон любого воспоминания; огни города в ночных днях | память нечёткая, а свет и цвет запоминаются лучше деталей |
+| **Плёночное зерно и выцветание** | зерно всегда; сильнее и с выцветанием — для ностальгии и усталости | плёнка — язык прошлого |
+| **Насыщенный цвет и пружинящее движение** | радость, драйв | энергия и лёгкость |
+| **Приглушённые цвета, тяжёлое движение, уход в темноту** | грусть, усталость | вес и медленность дня |
+| **Жёсткий контраст и нервная дрожь кадра** | тревога | беспокойство и напряжение |
+| **Ритмический монтаж на бит** | быстрые дни — вспышки, спокойные — растворения | музыка дня становится монтажом |
+| **Frutiger Aero** (стекло, небо, глянец, середина 2000-х) | интерфейс и стикеры | светлая цифровая ностальгия, постоянная для всей ленты |
+
+## 6. Техническая реализация
+
+- **Без фреймворков и сборки:** чистые ES-модули, HTML и CSS. Данные хранятся в IndexedDB на устройстве: записи с фото, папки, настроения, оформление.
+- **ИИ только на бесплатных моделях** (`js/ai.js`). Порядок: OpenRouter (бесплатные модели, список подгружается живьём), затем Gemini, Groq, Mistral и Cerebras, если задан ключ. При лимите модель отдыхает, и пробуется следующая. Если у платформы кончилась дневная квота, работа переходит на следующую. Если ИИ недоступен, срабатывают встроенные правила, и запись всё равно сохраняется.
+- **Мультимодальный разбор дня.** Модель с компьютерным зрением получает текст, обложку, настроение и песню (исполнитель, жанр, год) и возвращает строгий JSON. Ответ проверяется: например, слишком короткое или длинное название отбрасывается, и его заменяют правила.
+- **Аудиоанализ в браузере** (`js/audio.js`). Превью декодируется через Web Audio. По огибающей громкости вычисляются начала звуков, по автокорреляции — темп, по фазе — сетка долей, по пикам — акценты. Из громкости и плотности акцентов складывается энергия.
+- **Анализ цвета** (`js/photo.js`). Из фото извлекаются палитра и мера красочности. Серые кадры дополняются цветами обложки песни, а настроение обрабатывает палитру.
+- **Частицы погоды** на canvas (`js/weather.js`): дождь из штрихов с брызгами, снег с покачиванием, три слоя глубины.
+- **Книга** (`js/book.js`): 3D-перелистывание мышью и пальцем; коллаж страниц на сетке с детерминированной случайностью, поэтому дни всегда ложатся на одни и те же места; прозрачная обложка, сквозь которую виден первый разворот.
+- **Ключи не попадают в код сайта.** Прокси на Cloudflare Workers (`proxy/`) держит ключ OpenRouter в секрете и принимает запросы только с адреса сайта.
+- **Доступность:** работа с клавиатуры, подписи для кнопок-иконок, учёт `prefers-reduced-motion`.
+
+## Примеры дней и названия их папок
+
+Дни из нашей видеодемонстрации:
+
+- «Компания с паспортами перед полётом» — драйв
+- «Море и тысячи фонарей» — нежность
+- «Кукисы и клуб рисования с подругой» — спокойствие
+
+Восемь дней в примере альбома `?demo`:
+
+- «Вечер дождя у окна» — спокойствие, дождь
+- «Рассвет на пустом пляже» — радость
+- «Бабушкин сад и яблоки» — ностальгия
+- «Концерт в старом ангаре» — драйв
+- «Кофе вдвоём на кухне» — нежность
+- «Серый вокзал и остывший чай» — грусть
+- «Ночь перед сдачей проекта» — усталость
+- «Первый снег в парке» — спокойствие, снег
+
+## Использованные инструменты
+
+- **Музыка:** iTunes Search API (каталог Apple Music, официальные 30-секундные превью). Песни целиком не хранятся и не распространяются.
+- **ИИ:** OpenRouter (только бесплатные модели), Google Gemini, Groq, Mistral, Cerebras — все через OpenAI-совместимое API и только на бесплатных тарифах.
+- **Фото для примера альбома:** сгенерированы бесплатной моделью Recraft на OpenRouter и помечены как пример.
+- **Вырезание стикеров:** @imgly/background-removal (модель работает в браузере).
+- **Шрифты:** Unbounded и Manrope (Google Fonts).
+- **Прокси:** Cloudflare Workers.
+- **Хостинг:** GitHub Pages.
+
+Всё остальное написано командой: книга, воспоминание, система настроений, аудио- и цветоанализ, частицы, стикеры, интерфейс.
+
+## Этика
+
+- Фото в демонстрации — наши собственные или сгенерированные.
+- Настроение выбирает сам человек. Сайт не ставит диагнозов и не выдаёт догадки об эмоциях за правду.
+- Все данные дневника хранятся только на устройстве пользователя.
+
+## Чего пока нет
+
+Озвучки текста записи голосом пока нет: это дополнительный пункт кейса, и мы его не сделали.
