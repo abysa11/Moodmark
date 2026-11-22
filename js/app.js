@@ -18,7 +18,8 @@ const state = {
   folders: [],
   filter: { type: 'all', id: null },
   query: '',
-  collapsed: innerWidth < 760 || localStorage.getItem('mm.collapsed') === '1',
+  // the panel folds only on phones; on laptops and wider it is always open
+  collapsed: innerWidth < 760,
   loaded: false,
   look: structuredClone(DEFAULT_LOOK),
 };
@@ -139,6 +140,8 @@ function renderShell() {
     </main>
     <div class="toasts" role="status" aria-live="polite"></div>`;
   document.body.classList.toggle('is-collapsed', state.collapsed);
+  // turning a phone into a wide window opens the panel for good
+  addEventListener('resize', () => { if (innerWidth >= 760 && state.collapsed) { state.collapsed = false; document.body.classList.remove('is-collapsed'); } });
 
   const input = $('.search input');
   input.addEventListener('input', () => { state.query = input.value; renderNav(); renderMain(); });
@@ -264,8 +267,8 @@ function setFilter(type, id = null) {
 }
 
 function toggleCollapse(force) {
+  if (innerWidth >= 760) { state.collapsed = false; document.body.classList.remove('is-collapsed'); return; }
   state.collapsed = typeof force === 'boolean' ? force : !state.collapsed;
-  if (innerWidth >= 760) localStorage.setItem('mm.collapsed', state.collapsed ? '1' : '0');
   document.body.classList.toggle('is-collapsed', state.collapsed);
 }
 

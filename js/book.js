@@ -52,6 +52,7 @@ export function createBook(root, api) {
       <div class="bar-side bar-end"></div>
     </div>
     <div class="album-stage">
+      <aside class="today-card" aria-label="Сегодня"></aside>
       <div class="book">
         <div class="board" aria-hidden="true"></div>
         <div class="pages">
@@ -322,6 +323,69 @@ export function createBook(root, api) {
     if (v) setTimeout(() => R.querySelector('button')?.focus({ preventScroll: true }), reduce() ? 0 : 1000);
   }
 
+  // ---------- «Сегодня»: beside the closed book ----------
+  // A greeting and today's date, a button for today, and the month as a small
+  // calendar where every written day shows its own photo.
+  let calMonth = null; // 'YYYY-MM' shown in the calendar
+  const WEEK = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+  function renderToday() {
+    const card = root.querySelector('.today-card');
+    if (!card) return;
+    const now = new Date(), t = today();
+    calMonth ??= t.slice(0, 7);
+    const hour = now.getHours();
+    const hello = hour < 5 ? 'Доброй ночи' : hour < 12 ? 'Доброе утро' : hour < 18 ? 'Добрый день' : hour < 23 ? 'Добрый вечер' : 'Доброй ночи';
+    const items = api.items();
+    const byDate = new Map();
+    for (const e of items) if (!byDate.has(e.date)) byDate.set(e.date, e);
+    const todays = byDate.get(t);
+    // days in a row, up to today (or yesterday, if today isn't written yet)
+    let streak = 0;
+    const d = new Date(t + 'T12:00');
+    if (!byDate.has(t)) d.setDate(d.getDate() - 1);
+    while (byDate.has(d.toISOString().slice(0, 10))) { streak++; d.setDate(d.getDate() - 1); }
+
+    const [y, m] = calMonth.split('-').map(Number);
+    const first = new Date(y, m - 1, 1), days = new Date(y, m, 0).getDate();
+    const lead = (first.getDay() + 6) % 7;
+    const cells = [];
+    for (let i = 0; i < lead; i++) cells.push('<span class="cal-day is-empty"></span>');
+    for (let day = 1; day <= days; day++) {
+      const iso = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const e = byDate.get(iso);
+      const cls = `cal-day${iso === t ? ' is-today' : ''}${iso > t ? ' is-future' : ''}`;
+      cells.push(e
+        ? `<button class="${cls} has-photo" data-act="open" data-id="${e.id}" title="${esc(e.title)}" aria-label="${day} — ${esc(e.title)}"><img src="${api.urlOf(e)}" alt="" decoding="async"></button>`
+        : `<span class="${cls}">${day}</span>`);
+    }
+    const n = items.length;
+    card.innerHTML = `
+      <p class="today-hello">${hello}</p>
+      <p class="today-date">${fmtDate(t)}</p>
+      <p class="today-week">${fmtDate(t, true).split(',')[0]}</p>
+      ${todays
+        ? `<button class="btn primary today-btn" data-act="open" data-id="${todays.id}">${icon('play', 16)}<span>Открыть сегодняшний день</span></button>`
+        : `<button class="btn primary today-btn" data-act="new">${icon('plus', 18)}<span>Записать этот день</span></button>`}
+      <div class="cal">
+        <div class="cal-head">
+          <button class="cal-nav" data-cal="-1" aria-label="Предыдущий месяц">${icon('left', 16)}</button>
+          <span>${MONTHS[m - 1]} ${y}</span>
+          <button class="cal-nav" data-cal="1" aria-label="Следующий месяц" ${calMonth >= t.slice(0, 7) ? 'disabled' : ''}>${icon('right', 16)}</button>
+        </div>
+        <div class="cal-grid">${WEEK.map(w => `<span class="cal-wd">${w}</span>`).join('')}${cells.join('')}</div>
+      </div>
+      <p class="today-stats">${n ? `${n} ${plural(n, 'день', 'дня', 'дней')} в альбоме` : 'Альбом ждёт первый день'}${streak > 1 ? ` · ${streak} ${plural(streak, 'день', 'дня', 'дней')} подряд` : ''}</p>`;
+  }
+  root.addEventListener('click', ev => {
+    const nav = ev.target.closest('[data-cal]');
+    if (!nav || nav.disabled) return;
+    const [y, m] = calMonth.split('-').map(Number);
+    const d = new Date(y, m - 1 + Number(nav.dataset.cal), 1);
+    calMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    renderToday();
+  });
+
   // ---------- bar ----------
   const spreadLabel = () => {
     const nums = (two ? [page, page + 1] : [page]).filter(i => pages[i]?.type === 'items').map(i => ord(i) + 1);
@@ -347,6 +411,7 @@ export function createBook(root, api) {
         <button class="glass-btn icon-btn" data-book="decorate" aria-label="Оформить альбом" title="Оформить">${icon('brush')}</button>`;
     }
     root.classList.toggle('is-open', open);
+    if (!open) renderToday();
     if (barOnly) return;
   }
 
@@ -441,6 +506,12 @@ export function createBook(root, api) {
     book.style.setProperty('--pw', pw + 'px');
     book.style.setProperty('--ph', Math.round(pw / ratio) + 'px');
     book.classList.toggle('is-single', !two);
+    // the «Сегодня» card beside the closed book, where there is room for it
+    // (the closed book moves right a little if that makes room)
+    const need = 300 + 40, side = (r.width - pw) / 2;
+    const fits = two && r.width - pw - need >= 24;
+    root.classList.toggle('room-today', fits);
+    book.style.setProperty('--shift', fits ? Math.max(0, need - side) + 'px' : '0px');
     if (wasTwo !== two) { build(); page = Math.min(lastView(), viewOf(page)); renderSpread(); sync(); }
   }
   new ResizeObserver(fit).observe(stage);
