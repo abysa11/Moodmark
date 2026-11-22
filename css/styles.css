@@ -1599,3 +1599,32 @@ body { background-color: #1f78c8; color: var(--ink); }
 .cal-day.has-photo:hover { transform: scale(1.12); }
 .cal-day.has-photo img { width: 100%; height: 100%; object-fit: cover; }
 .today-stats { margin: var(--s4) 0 0; font-size: 13px; font-weight: 600; opacity: 0.9; }
+
+/* =========================================================
+   Accent: warm sunlight amber, the one color besides sky blue
+   and meadow green. Used only where the eye should go: the
+   main actions, the chosen mood, today, the song's progress.
+   ========================================================= */
+:root {
+  --sun-1: #ffe27a;
+  --sun-2: #ffb22e;
+  --sun-3: #f07c12;
+}
+.btn.primary {
+  color: #fff;
+  background: linear-gradient(180deg, #ffe7a0 0%, #ffbe3d 46%, #f58a12 54%, #ffab2e 100%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  text-shadow: 0 1px 1px rgba(150, 70, 0, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -2px 6px rgba(170, 70, 0, 0.25), 0 6px 16px rgba(220, 110, 10, 0.35);
+}
+.btn.primary:hover:not(:disabled) { background: linear-gradient(180deg, #fff0bd 0%, #ffc95a 46%, #fa961f 54%, #ffb846 100%); }
+.chip.is-active, .side .chip.is-active {
+  color: #fff; border-color: rgba(255, 255, 255, 0.85);
+  background: linear-gradient(180deg, #ffe39a 0%, #ffb733 48%, #f2860f 52%, #ffa827 100%);
+  text-shadow: 0 1px 1px rgba(150, 70, 0, 0.5);
+}
+.chip.is-active span, .side .chip.is-active span { color: rgba(255, 255, 255, 0.85); }
+.cal-day.is-today { box-shadow: none; background: linear-gradient(180deg, var(--sun-1), var(--sun-2) 60%, var(--sun-3)); color: #fff; text-shadow: 0 1px 1px rgba(150, 70, 0, 0.5); }
+.cal-day.is-today.has-photo { border-color: var(--sun-2); box-shadow: 0 0 0 2px var(--sun-2), 0 2px 6px rgba(0, 40, 100, 0.3); }
+.v-song-bar i { background: linear-gradient(90deg, var(--sun-1), var(--sun-2)); }
+:focus-visible { outline-color: var(--sun-3); }
