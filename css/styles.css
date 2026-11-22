@@ -1601,44 +1601,31 @@ body { background-color: #1f78c8; color: var(--ink); }
 .today-stats { margin: var(--s4) 0 0; font-size: 13px; font-weight: 600; opacity: 0.9; }
 
 /* =========================================================
-   Accent: glossy red, the one color besides sky blue and meadow
-   green. Used only where the eye should go: the main actions, the
-   chosen mood, today, the song's progress, and every close (×).
+   Accent: glossy pink-violet, the one color besides sky blue
+   and meadow green. Used only where the eye should go: the main
+   actions, the chosen mood and today in the calendar.
    ========================================================= */
 :root {
-  --red-1: #ffb1aa;
-  --red-2: #f2463b;
-  --red-3: #c41f16;
-  --red-gloss: linear-gradient(180deg, #ffbdb6 0%, #ff5c50 46%, #d8271c 54%, #f2463b 100%);
-  --red-gloss-hover: linear-gradient(180deg, #ffd0ca 0%, #ff6e62 46%, #e3342a 54%, #f85a4f 100%);
+  --acc-1: #ffd2f6;
+  --acc-2: #d955e0;
+  --acc-3: #9e2fc4;
+  --acc-gloss: linear-gradient(180deg, #ffd6f7 0%, #ec74e8 46%, #b23ccf 54%, #d65ee2 100%);
+  --acc-gloss-hover: linear-gradient(180deg, #ffe3fa 0%, #f286ee 46%, #bf4bda 54%, #df70ea 100%);
 }
 .btn.primary {
   color: #fff;
-  background: var(--red-gloss);
+  background: var(--acc-gloss);
   border: 1px solid rgba(255, 255, 255, 0.8);
-  text-shadow: 0 1px 1px rgba(120, 10, 0, 0.55);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -2px 6px rgba(140, 20, 10, 0.25), 0 6px 16px rgba(200, 40, 30, 0.35);
+  text-shadow: 0 1px 1px rgba(90, 10, 110, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -2px 6px rgba(100, 20, 130, 0.25), 0 6px 16px rgba(170, 50, 200, 0.35);
 }
-.btn.primary:hover:not(:disabled) { background: var(--red-gloss-hover); }
+.btn.primary:hover:not(:disabled) { background: var(--acc-gloss-hover); }
 .chip.is-active, .side .chip.is-active {
   color: #fff; border-color: rgba(255, 255, 255, 0.85);
-  background: var(--red-gloss);
-  text-shadow: 0 1px 1px rgba(120, 10, 0, 0.5);
+  background: var(--acc-gloss);
+  text-shadow: 0 1px 1px rgba(90, 10, 110, 0.5);
 }
 .chip.is-active span, .side .chip.is-active span { color: rgba(255, 255, 255, 0.85); }
-.cal-day.is-today { box-shadow: none; background: var(--red-gloss); color: #fff; text-shadow: 0 1px 1px rgba(120, 10, 0, 0.5); }
-.cal-day.is-today.has-photo { border-color: var(--red-2); box-shadow: 0 0 0 2px var(--red-2), 0 2px 6px rgba(0, 40, 100, 0.3); }
-.v-song-bar i { background: linear-gradient(90deg, var(--red-1), var(--red-2)); }
-:focus-visible { outline-color: var(--red-3); }
-
-/* every close (×): a small glossy red bubble with a white cross */
-.icon-btn:has(> .i-close), .glass-btn:has(> .i-close), .chip-x, .own-x, .stk-del, .side .chip-x,
-.chip-wrap .chip.is-active + .chip-x, .bar-filter .icon-btn {
-  color: #fff !important;
-  background: var(--red-gloss) !important;
-  border: 1px solid rgba(255, 255, 255, 0.85) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 8px rgba(160, 20, 10, 0.3) !important;
-  text-shadow: none;
-}
-.icon-btn:has(> .i-close):hover, .glass-btn:has(> .i-close):hover, .chip-x:hover, .own-x:hover, .stk-del:hover, .bar-filter .icon-btn:hover { background: var(--red-gloss-hover) !important; }
-.icon-btn:has(> .i-close) .i, .chip-x .i, .own-x .i, .stk-del .i { filter: drop-shadow(0 1px 1px rgba(120, 10, 0, 0.45)); }
+.cal-day.is-today { box-shadow: none; background: var(--acc-gloss); color: #fff; text-shadow: 0 1px 1px rgba(90, 10, 110, 0.5); }
+.cal-day.is-today.has-photo { border-color: var(--acc-2); box-shadow: 0 0 0 2px var(--acc-2), 0 2px 6px rgba(0, 40, 100, 0.3); }
+:focus-visible { outline-color: var(--acc-3); }
