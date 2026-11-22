@@ -22,18 +22,48 @@ export function colorfulness(img) {
   return Math.min(1, sum / (d.length / 4) / 90);
 }
 
-// Mixes the photo's colors with the mood's: the grayer the photo, the more the
-// mood's own colors show (a gray wall shouldn't make a joyful day gray).
-export function moodPalette(photoPal, tint, vivid) {
-  const parse = c => c.startsWith('#') ? [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)) : c.match(/\d+/g).map(Number);
-  const k = Math.min(0.85, 0.3 + (1 - vivid) * 0.6);
+// ---------- the day's colors ----------
+// Colors come from the day itself, never from a mood: the photo's own colors,
+// and where the photo is gray, the colors of the song's cover. The mood only
+// treats them: richer for joy, muted for sadness, faded for nostalgia…
+const parse = c => (c.startsWith('#') ? [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)) : c.match(/\d+/g).map(Number));
+function toHsl([r, g, b]) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+  if (mx === mn) return [0, 0, l];
+  const d = mx - mn, s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+  const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h / 6, s, l];
+}
+function toRgb([h, s, l]) {
+  if (!s) return [l, l, l].map(v => Math.round(v * 255));
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const f = t => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
+  return [f(h + 1 / 3), f(h), f(h - 1 / 3)].map(v => Math.round(v * 255));
+}
+// The mood's treatment of a color: saturation, lightness, contrast around the
+// middle, and fading (like old film: less saturated, lifted toward paper-white).
+export function treatColor(c, t = {}) {
+  let [h, s, l] = toHsl(parse(c));
+  s = Math.min(1, s * (t.sat ?? 1));
+  l = 0.5 + (l - 0.5) * (t.contrast ?? 1) + (t.light ?? 0);
+  if (t.fade) { s *= 1 - t.fade; l = l + (0.86 - l) * t.fade * 0.6; }
+  return `rgb(${toRgb([h, Math.max(0, s), Math.max(0.04, Math.min(0.96, l))]).join(',')})`;
+}
+// The light of the memory: the photo's colors first; the grayer the photo, the
+// more the song cover's colors take over. Then the mood's treatment.
+export function dayPalette(photoPal, artPal, vivid, treat) {
+  const take = artPal ? Math.max(0, Math.min(0.85, (0.55 - vivid) * 1.6)) : 0;
   return photoPal.map((c, i) => {
-    const a = parse(c), b = parse(tint[i % tint.length]);
-    return `rgb(${a.map((v, j) => Math.round(v * (1 - k) + b[j] * k)).join(',')})`;
+    const a = parse(c), b = artPal ? parse(artPal[i % artPal.length]) : a;
+    const mix = `rgb(${a.map((v, j) => Math.round(v * (1 - take) + b[j] * take)).join(',')})`;
+    return treatColor(mix, treat);
   });
 }
 
-export function paintBlur(canvas, img, grade, warmth = 0, tint = null) {
+// light: { warm: -1…1 from the day (time of day, the photo), tint: { color, strength } | null }
+export function paintBlur(canvas, img, grade, light = {}) {
+  const tint = light.tint || null;
   const W = canvas.clientWidth, H = canvas.clientHeight;
   const k = 0.5; // the blur hides detail anyway: half resolution keeps it fast
   canvas.width = Math.max(1, Math.round(W * k));
@@ -83,17 +113,14 @@ export function paintBlur(canvas, img, grade, warmth = 0, tint = null) {
     canvas.style.filter = `blur(${Math.round(grade.blur * 0.5)}px) ${tone}`;
   }
 
-  // the mood sets the direction of the light; the photo can soften it, not turn it around
-  let w = grade.warm * 0.8 + warmth * 0.3;
-  if (grade.warm > 0.2) w = Math.max(w, grade.warm * 0.6);
-  if (grade.warm < -0.2) w = Math.min(w, grade.warm * 0.6);
-  w = Math.max(-1, Math.min(1, w));
+  // warm or cool light comes from the day (its hour, its photo), not the mood
+  const w = Math.max(-1, Math.min(1, light.warm || 0));
   if (Math.abs(w) > 0.05) {
     ctx.globalCompositeOperation = 'soft-light';
     ctx.fillStyle = w > 0 ? `rgba(255,170,90,${0.35 * w})` : `rgba(80,130,255,${-0.35 * w})`;
     ctx.fillRect(0, 0, W, H);
   }
-  // the mood's own color, stronger over a gray photo
+  // over a gray photo, a wash of the song cover's color
   if (tint) {
     ctx.globalCompositeOperation = 'soft-light';
     ctx.globalAlpha = tint.strength;

@@ -12,7 +12,7 @@
 // it, and stays off until turned on.
 import { icon } from './icons.js';
 import { moodById } from './moods.js';
-import { fitRect, paintBlur, loadImage, paletteOf, colorfulness, moodPalette } from './photo.js';
+import { fitRect, paintBlur, loadImage, paletteOf, colorfulness, dayPalette } from './photo.js';
 import { beatsOf } from './audio.js';
 import { startWeather } from './weather.js';
 import { fmtDate, esc } from './util.js';
@@ -55,7 +55,7 @@ export async function openViewer(entry, urls, actions) {
   const [pmin, pmax] = mood.pace || [-1, 1];
   const pace = Math.max(pmin, Math.min(pmax, Number.isFinite(entry.pace) ? entry.pace : (pmin + pmax) / 2));
   const speed = Math.max(0.35, Math.min(1.8, grade.speed * (1 + 0.45 * pace)));
-  const time = entry.time || (grade.warm > 0.3 ? 'evening' : 'day');
+  const time = entry.time || 'day';
   const base = mood.base || mood.id;
   const bright = ['joy', 'energy'].includes(base);
   const cut = pace > 0.35 || entry.light === 'neon' ? 'flash'
@@ -90,6 +90,13 @@ export async function openViewer(entry, urls, actions) {
   el.dataset.time = time;
   el.dataset.light = entry.light || '';
   el.dataset.cut = cut;
+  // how things move is the mood's (springy joy, drifting calm, heavy sadness…)
+  el.dataset.motion = mood.motion || 'drift';
+  // light sources the entry itself names: sun, city lights, fire
+  const said = `${entry.text || ''} ${entry.title || ''}`;
+  el.dataset.glow = /закат|рассвет|солнц|sunset|sunrise|\bsun\b/i.test(said) ? 'sun'
+    : /огн[иея]|неон|гирлянд|фонар|\blights\b|neon/i.test(said) ? 'city'
+    : /кост[её]р|свеч|камин|fireplace|candle|campfire/i.test(said) ? 'fire' : '';
   el.style.setProperty('--trans', trans + 'ms');
   el.innerHTML = `
     <div class="v-stage">
@@ -100,6 +107,7 @@ export async function openViewer(entry, urls, actions) {
       </div>
       ${entry.weather === 'fog' ? '<div class="v-weather" data-w="fog" aria-hidden="true"></div>' : ''}
       ${['rain', 'snow'].includes(entry.weather) ? '<canvas class="v-weather" aria-hidden="true"></canvas>' : ''}
+      <div class="v-glow" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
       <div class="v-grain" aria-hidden="true"></div>
       <div class="v-sweep" aria-hidden="true"></div>
       <div class="v-cut" aria-hidden="true"></div>
@@ -147,7 +155,7 @@ export async function openViewer(entry, urls, actions) {
 
   const bgs = [...el.querySelectorAll('.v-bg')];
   const prints = [...el.querySelectorAll('.v-print')];
-  let alive = true, cur = -1, bgFront = 0, bgPhoto = -1, imgs = [], palettes = [], tints = [], slots = [], heroes = [];
+  let alive = true, cur = -1, bgFront = 0, bgPhoto = -1, imgs = [], palettes = [], lights = [], slots = [], heroes = [];
   let anims = [];
 
   // ---------- music ----------
@@ -179,6 +187,8 @@ export async function openViewer(entry, urls, actions) {
 
   beatsOf(entry.track?.preview).then(b => {
     if (!b || !alive) return;
+    // a lively song makes livelier light
+    el.style.setProperty('--energy', b.energy.toFixed(2));
     // a moment lasts 4 beats on a fast day, 8 on an ordinary one, 16 on a slow one
     let dur = b.period * (speed >= 1.2 ? 4 : speed >= 0.85 ? 8 : 16);
     while (dur < 3) dur *= 2;
@@ -266,7 +276,7 @@ export async function openViewer(entry, urls, actions) {
     // background and colors follow the photo
     if (bgPhoto !== m.i) {
       const target = bgs[1 - bgFront];
-      paintBlur(target, imgs[m.i], grade, entry.warmth || 0, tints[m.i]);
+      paintBlur(target, imgs[m.i], grade, lights[m.i]);
       target.classList.add('is-on');
       bgs[bgFront].classList.remove('is-on');
       bgFront = 1 - bgFront;
@@ -378,9 +388,25 @@ export async function openViewer(entry, urls, actions) {
   imgs = await Promise.all(urls.map(u => loadImage(u).catch(() => null)));
   if (!alive) return;
   if (imgs.some(x => !x)) { const ok = imgs.find(Boolean); imgs = imgs.map(x => x || ok); }
+  // the day's colors: its photos, and where they are gray, its song's cover
+  let art = null;
+  if (entry.track?.artwork) {
+    art = await new Promise(res => {
+      const a = new Image();
+      a.crossOrigin = 'anonymous';
+      a.onload = () => { try { res(paletteOf(a)); } catch { res(null); } };
+      a.onerror = () => res(null);
+      a.src = entry.track.artwork;
+      setTimeout(() => res(null), 2500);
+    });
+  }
+  if (!alive) return;
   const vivid = imgs.map(im => colorfulness(im));
-  palettes = imgs.map((im, i) => moodPalette(paletteOf(im), mood.tint || ['#c9cbd0'], vivid[i]));
-  tints = vivid.map(v => ({ color: (mood.tint || ['#ffffff'])[0], strength: 0.18 + (1 - v) * 0.3 }));
+  palettes = imgs.map((im, i) => dayPalette(paletteOf(im), art, vivid[i], mood.treat));
+  // warm or cool from the day itself: the hour, and what the AI saw in the photo
+  const hourWarm = { morning: -0.08, day: 0, evening: 0.28, night: -0.05 }[time] || 0;
+  const warm = Math.max(-1, Math.min(1, (Number(entry.warmth) || 0) * 0.6 + hourWarm));
+  lights = vivid.map(v => ({ warm, tint: art && v < 0.5 ? { color: art[0], strength: (0.5 - v) * 0.7 } : null }));
   el.style.setProperty('--move', Math.max(900, trans) + 'ms');
   layout();
   setElapsed(0);
@@ -402,7 +428,7 @@ export async function openViewer(entry, urls, actions) {
   let resizeT;
   const onResize = () => {
     clearTimeout(resizeT);
-    resizeT = setTimeout(() => { if (cur < 0) return; layout(); paintBlur(bgs[bgFront], imgs[moments[cur].i], grade, entry.warmth || 0, tints[moments[cur].i]); }, 120);
+    resizeT = setTimeout(() => { if (cur < 0) return; layout(); paintBlur(bgs[bgFront], imgs[moments[cur].i], grade, lights[moments[cur].i]); }, 120);
   };
   addEventListener('resize', onResize);
 

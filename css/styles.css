@@ -1503,3 +1503,50 @@ body { background-color: #1f78c8; color: var(--ink); }
    letter leaves trailing on the right */
 .cover-frame { inset: 6% 6.5%; }
 .cover-title { transform: translateX(-0.06em); }
+
+/* =========================================================
+   The mood as behavior, not color
+   ========================================================= */
+.viewer { --energy: 0.5; }
+/* how the prints move: springy joy, bouncing drive, drifting calm,
+   heavy sadness, a restless tremor for anxiety */
+.viewer[data-motion="spring"] .v-print { transition-timing-function: cubic-bezier(0.34, 1.45, 0.64, 1); }
+.viewer[data-motion="bounce"] .v-print { transition-timing-function: cubic-bezier(0.2, 1.7, 0.4, 1); }
+.viewer[data-motion="drift"] .v-print { transition-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+.viewer[data-motion="heavy"] .v-print { transition-timing-function: cubic-bezier(0.6, 0, 0.2, 1); transition-duration: calc(var(--move, 1200ms) * 1.35), 900ms, 900ms, 900ms; }
+.viewer[data-motion="jitter"] .v-collage { animation: jitter 2.4s steps(1) infinite; }
+@keyframes jitter {
+  0% { translate: 0 0; } 11% { translate: 1.5px -1px; } 23% { translate: -1px 1px; } 37% { translate: 0.5px 0; }
+  52% { translate: -1.5px -0.5px; } 66% { translate: 1px 1.5px; } 81% { translate: 0 -1px; } 100% { translate: 0 0; }
+}
+
+/* a lively song makes livelier, brighter light */
+.viewer.is-world .v-light { opacity: calc(0.55 + var(--energy) * 0.45); }
+.v-light i:nth-child(1) { animation-duration: calc(26s / var(--speed) / (0.6 + var(--energy))); }
+.v-light i:nth-child(2) { animation-duration: calc(32s / var(--speed) / (0.6 + var(--energy))); }
+.v-light i:nth-child(3) { animation-duration: calc(38s / var(--speed) / (0.6 + var(--energy))); }
+
+/* light sources the entry names */
+.v-glow { position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0; transition: opacity 2400ms var(--ease); mix-blend-mode: screen; }
+.v-glow i { display: none; }
+.viewer.is-world[data-glow] .v-glow { opacity: 1; }
+.viewer[data-glow=""] .v-glow { display: none; }
+/* sun: sunlight from above, breathing slowly */
+.viewer[data-glow="sun"] .v-glow { background: radial-gradient(60vw 55vh at 82% 0%, rgba(255, 246, 220, 0.55), rgba(255, 246, 220, 0) 70%); animation: sun-breathe 9s ease-in-out infinite alternate; }
+@keyframes sun-breathe { to { filter: brightness(1.15); } }
+/* city lights: soft out-of-focus circles in the day's own colors */
+.viewer[data-glow="city"] .v-glow i { display: block; position: absolute; border-radius: 50%; filter: blur(6px); opacity: 0.55; animation: bokeh 14s ease-in-out infinite alternate; }
+.viewer[data-glow="city"] .v-glow i:nth-child(3n + 1) { background: var(--c1); }
+.viewer[data-glow="city"] .v-glow i:nth-child(3n + 2) { background: var(--c2); }
+.viewer[data-glow="city"] .v-glow i:nth-child(3n) { background: var(--c3); }
+.v-glow i:nth-child(1) { width: 90px; height: 90px; left: 8%; top: 18%; }
+.v-glow i:nth-child(2) { width: 60px; height: 60px; left: 80%; top: 12%; animation-delay: -3s; }
+.v-glow i:nth-child(3) { width: 120px; height: 120px; left: 72%; top: 62%; animation-delay: -6s; }
+.v-glow i:nth-child(4) { width: 44px; height: 44px; left: 20%; top: 70%; animation-delay: -2s; }
+.v-glow i:nth-child(5) { width: 70px; height: 70px; left: 46%; top: 6%; animation-delay: -8s; }
+.v-glow i:nth-child(6) { width: 54px; height: 54px; left: 90%; top: 40%; animation-delay: -5s; }
+@keyframes bokeh { to { transform: translate(14px, -10px) scale(1.1); opacity: 0.35; } }
+/* fire: a warm, flickering glow from below */
+.viewer[data-glow="fire"] .v-glow { background: radial-gradient(70vw 50vh at 50% 105%, rgba(255, 150, 60, 0.45), rgba(255, 150, 60, 0) 70%); animation: flicker 1.8s steps(1) infinite; }
+@keyframes flicker { 0% { opacity: 1; } 17% { opacity: 0.82; } 31% { opacity: 0.95; } 48% { opacity: 0.76; } 63% { opacity: 1; } 79% { opacity: 0.88; } 100% { opacity: 0.93; } }
+.viewer.is-paused .v-glow, .viewer.is-paused .v-glow i, .viewer.is-paused .v-collage { animation-play-state: paused; }

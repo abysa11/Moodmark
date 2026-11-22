@@ -1,8 +1,9 @@
 // Sound for the memory view.
 //
 // 1. beatsOf(url): reads the song's 30-second preview and finds its tempo
-//    (beats per minute), where the beats fall, and the strongest accents, so
-//    photos can change in time with the music.
+//    (beats per minute), where the beats fall, the strongest accents and how
+//    energetic it is, so photos change in time with the music and the light
+//    is as lively as the song.
 // 2. Ambience: soft background sound (rain, wind, sea, street, fire), made
 //    right in the browser from filtered noise. It is offered only when the
 //    entry itself mentions it, and it is off until the person turns it on.
@@ -70,7 +71,13 @@ async function analyse(url) {
     if (onset[i] > mean + 2.2 * sd && onset[i] >= onset[i - 1] && onset[i] >= onset[i + 1]) accents.push(i / fps);
   }
 
-  return { bpm: 60 * fps / bestLag, period: bestLag / fps, offset: bestPhase / fps, accents, duration: buf.duration };
+  // energy 0…1: how loud the song is and how often it hits hard
+  let loud = 0;
+  for (let i = 0; i < n; i++) loud += env[i];
+  loud /= n;
+  const energy = Math.max(0, Math.min(1, 0.5 * Math.min(1, loud / 0.2) + 0.5 * Math.min(1, accents.length / buf.duration / 2.5)));
+
+  return { bpm: 60 * fps / bestLag, period: bestLag / fps, offset: bestPhase / fps, accents, duration: buf.duration, energy };
 }
 
 // ---------- ambience ----------
