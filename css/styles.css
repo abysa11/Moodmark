@@ -1189,7 +1189,8 @@ body.is-intro .main { opacity: 0; transform: translateY(24px); }
   .v-frag { font-size: 16px; }
   .v-sheet { top: 80px; right: var(--s3); left: var(--s3); width: auto; bottom: var(--s3); }
   .v-unmute { bottom: auto; top: 76px; }
-  .v-again { right: 50%; transform: translateX(50%); bottom: auto; top: 61%; }
+  /* phones: at the top, under the close button row, away from the title */
+  .v-again, .viewer.is-ended .v-again { right: 50%; transform: translateX(50%); bottom: auto; top: 76px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

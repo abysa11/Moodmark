@@ -12,7 +12,7 @@
 // it, and stays off until turned on.
 import { icon } from './icons.js';
 import { moodById } from './moods.js';
-import { fitRect, paintBlur, loadImage, paletteOf } from './photo.js';
+import { fitRect, paintBlur, loadImage, paletteOf, colorfulness, moodPalette } from './photo.js';
 import { beatsOf } from './audio.js';
 import { startWeather } from './weather.js';
 import { fmtDate, esc } from './util.js';
@@ -51,12 +51,15 @@ export async function openViewer(entry, urls, actions) {
   //  - transitions: an eventful or neon day cuts with a flash, a night or a
   //    heavy day dips through darkness, everything else dissolves;
   //  - a longer written fragment holds its moment longer.
-  const pace = Number.isFinite(entry.pace) ? entry.pace : 0;
+  // the chosen mood bounds the pace: a joyful day is never filmed as a slow one
+  const [pmin, pmax] = mood.pace || [-1, 1];
+  const pace = Math.max(pmin, Math.min(pmax, Number.isFinite(entry.pace) ? entry.pace : (pmin + pmax) / 2));
   const speed = Math.max(0.35, Math.min(1.8, grade.speed * (1 + 0.45 * pace)));
   const time = entry.time || (grade.warm > 0.3 ? 'evening' : 'day');
   const base = mood.base || mood.id;
+  const bright = ['joy', 'energy'].includes(base);
   const cut = pace > 0.35 || entry.light === 'neon' ? 'flash'
-    : time === 'night' || ['sad', 'tired', 'anxious'].includes(base) ? 'dip' : 'dissolve';
+    : ['sad', 'tired', 'anxious'].includes(base) || (time === 'night' && !bright) ? 'dip' : 'dissolve';
 
   // Moments: one per photo; a single photo gives two to four moments over its
   // details, one for each written fragment.
@@ -144,7 +147,7 @@ export async function openViewer(entry, urls, actions) {
 
   const bgs = [...el.querySelectorAll('.v-bg')];
   const prints = [...el.querySelectorAll('.v-print')];
-  let alive = true, cur = -1, bgFront = 0, bgPhoto = -1, imgs = [], palettes = [], slots = [], heroes = [];
+  let alive = true, cur = -1, bgFront = 0, bgPhoto = -1, imgs = [], palettes = [], tints = [], slots = [], heroes = [];
   let anims = [];
 
   // ---------- music ----------
@@ -263,7 +266,7 @@ export async function openViewer(entry, urls, actions) {
     // background and colors follow the photo
     if (bgPhoto !== m.i) {
       const target = bgs[1 - bgFront];
-      paintBlur(target, imgs[m.i], grade, entry.warmth || 0);
+      paintBlur(target, imgs[m.i], grade, entry.warmth || 0, tints[m.i]);
       target.classList.add('is-on');
       bgs[bgFront].classList.remove('is-on');
       bgFront = 1 - bgFront;
@@ -375,7 +378,9 @@ export async function openViewer(entry, urls, actions) {
   imgs = await Promise.all(urls.map(u => loadImage(u).catch(() => null)));
   if (!alive) return;
   if (imgs.some(x => !x)) { const ok = imgs.find(Boolean); imgs = imgs.map(x => x || ok); }
-  palettes = imgs.map(im => paletteOf(im));
+  const vivid = imgs.map(im => colorfulness(im));
+  palettes = imgs.map((im, i) => moodPalette(paletteOf(im), mood.tint || ['#c9cbd0'], vivid[i]));
+  tints = vivid.map(v => ({ color: (mood.tint || ['#ffffff'])[0], strength: 0.18 + (1 - v) * 0.3 }));
   el.style.setProperty('--move', Math.max(900, trans) + 'ms');
   layout();
   setElapsed(0);
@@ -397,7 +402,7 @@ export async function openViewer(entry, urls, actions) {
   let resizeT;
   const onResize = () => {
     clearTimeout(resizeT);
-    resizeT = setTimeout(() => { if (cur < 0) return; layout(); paintBlur(bgs[bgFront], imgs[moments[cur].i], grade, entry.warmth || 0); }, 120);
+    resizeT = setTimeout(() => { if (cur < 0) return; layout(); paintBlur(bgs[bgFront], imgs[moments[cur].i], grade, entry.warmth || 0, tints[moments[cur].i]); }, 120);
   };
   addEventListener('resize', onResize);
 

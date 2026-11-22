@@ -10,7 +10,30 @@ const canvasFilter = typeof CanvasRenderingContext2D !== 'undefined' && 'filter'
 
 // The memory's background: the same photo, enlarged to cover the screen and
 // deeply blurred, then lit by the mood (warm or cool) with a soft vignette.
-export function paintBlur(canvas, img, grade, warmth = 0) {
+// How colorful an image is, 0 (gray) … 1 (vivid).
+export function colorfulness(img) {
+  const c = document.createElement('canvas');
+  c.width = 32; c.height = 32;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.drawImage(img, 0, 0, 32, 32);
+  const d = x.getImageData(0, 0, 32, 32).data;
+  let sum = 0;
+  for (let i = 0; i < d.length; i += 4) sum += Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]);
+  return Math.min(1, sum / (d.length / 4) / 90);
+}
+
+// Mixes the photo's colors with the mood's: the grayer the photo, the more the
+// mood's own colors show (a gray wall shouldn't make a joyful day gray).
+export function moodPalette(photoPal, tint, vivid) {
+  const parse = c => c.startsWith('#') ? [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)) : c.match(/\d+/g).map(Number);
+  const k = Math.min(0.85, 0.3 + (1 - vivid) * 0.6);
+  return photoPal.map((c, i) => {
+    const a = parse(c), b = parse(tint[i % tint.length]);
+    return `rgb(${a.map((v, j) => Math.round(v * (1 - k) + b[j] * k)).join(',')})`;
+  });
+}
+
+export function paintBlur(canvas, img, grade, warmth = 0, tint = null) {
   const W = canvas.clientWidth, H = canvas.clientHeight;
   const k = 0.5; // the blur hides detail anyway: half resolution keeps it fast
   canvas.width = Math.max(1, Math.round(W * k));
@@ -60,11 +83,23 @@ export function paintBlur(canvas, img, grade, warmth = 0) {
     canvas.style.filter = `blur(${Math.round(grade.blur * 0.5)}px) ${tone}`;
   }
 
-  const w = Math.max(-1, Math.min(1, grade.warm * 0.7 + warmth * 0.5));
+  // the mood sets the direction of the light; the photo can soften it, not turn it around
+  let w = grade.warm * 0.8 + warmth * 0.3;
+  if (grade.warm > 0.2) w = Math.max(w, grade.warm * 0.6);
+  if (grade.warm < -0.2) w = Math.min(w, grade.warm * 0.6);
+  w = Math.max(-1, Math.min(1, w));
   if (Math.abs(w) > 0.05) {
     ctx.globalCompositeOperation = 'soft-light';
     ctx.fillStyle = w > 0 ? `rgba(255,170,90,${0.35 * w})` : `rgba(80,130,255,${-0.35 * w})`;
     ctx.fillRect(0, 0, W, H);
+  }
+  // the mood's own color, stronger over a gray photo
+  if (tint) {
+    ctx.globalCompositeOperation = 'soft-light';
+    ctx.globalAlpha = tint.strength;
+    ctx.fillStyle = tint.color;
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
   }
   ctx.globalCompositeOperation = 'source-over';
   const v = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.6);
